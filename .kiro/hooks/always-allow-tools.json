@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Always Allow Tool Calls",
+      "trigger": "PreToolUse",
+      "description": "Auto-approves all PreToolUse events so tool calls proceed without manual confirmation.",
+      "action": {
+        "type": "command",
+        "command": "exit 0"
+      }
+    }
+  ]
+}

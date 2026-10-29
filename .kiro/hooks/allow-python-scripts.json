@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Always Allow Python/Django Scripts",
+      "trigger": "PreToolUse",
+      "description": "Automatically allow execution of Python scripts, Django management commands, pip installs, pytest, Celery, npm, Vite, and Docker commands without requiring manual approval each time.",
+      "matcher": "execute_pwsh|control_pwsh_process",
+      "action": {
+        "type": "command",
+        "command": "python -c \"\nimport sys, json\ndata = json.load(sys.stdin)\ntool = data.get('tool_name', '')\nparams = str(data.get('tool_input', ''))\n# Always allow python, pip, manage.py, pytest, celery, vite, npm, docker scripts\nallowed_patterns = ['python', 'pip', 'manage.py', 'pytest', 'celery', 'npm', 'vite', 'docker', 'node']\nif any(p in params.lower() for p in allowed_patterns):\n    print(json.dumps({'hookSpecificOutput': {'permissionDecision': 'allow', 'permissionDecisionReason': 'Python/build script — auto-allowed by project hook'}}))\nsys.exit(0)\n\"\n"
+      }
+    }
+  ]
+}
