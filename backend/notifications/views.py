@@ -11,12 +11,18 @@ from .models import Notification, NotificationPreference
 @permission_classes([permissions.IsAuthenticated, HasOrganizationAccess])
 def notifications_list(request):
     """List notifications for the current user in the active organization."""
-    qs = Notification.objects.filter(
+    # Get base queryset (without slicing yet)
+    base_qs = Notification.objects.filter(
         recipient=request.user,
         organization=request.membership.organization,
-    ).order_by("-created_at")[:50]
-
-    unread_count = qs.filter(read_at__isnull=True).count()
+    )
+    
+    # Calculate unread count from base queryset (before slicing)
+    unread_count = base_qs.filter(read_at__isnull=True).count()
+    
+    # Now get the limited list of notifications
+    notifications = base_qs.order_by("-created_at")[:50]
+    
     return Response({
         "unread_count": unread_count,
         "notifications": [
@@ -29,7 +35,7 @@ def notifications_list(request):
                 "read": n.read_at is not None,
                 "created_at": n.created_at.isoformat(),
             }
-            for n in qs
+            for n in notifications
         ],
     })
 

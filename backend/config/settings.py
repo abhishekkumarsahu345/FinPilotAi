@@ -165,6 +165,9 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 # AI provider
 AI_PROVIDER = os.getenv("AI_PROVIDER", "openai")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GROK_API_KEY = os.getenv("GROK_API_KEY", "")
+GROK_BASE_URL = os.getenv("GROK_BASE_URL", "https://api.x.ai/v1")
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-beta")
 
 # Webhook signing secrets
 EMAIL_WEBHOOK_SECRET = os.getenv("EMAIL_WEBHOOK_SECRET", "")

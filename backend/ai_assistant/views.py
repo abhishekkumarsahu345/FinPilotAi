@@ -6,6 +6,7 @@ AI provider is optional — falls back to a deterministic rule-based mode when
 no API key is configured, still demonstrating the tool framework.
 """
 import json
+import logging
 import uuid
 
 from django.conf import settings
@@ -18,6 +19,8 @@ from rest_framework.response import Response
 from core.permissions import HasOrganizationAccess
 from .models import AIRun
 from .tools import AVAILABLE_TOOLS
+
+logger = logging.getLogger(__name__)
 
 
 def _rule_based_answer(question: str, org, tool_results: dict) -> str:
@@ -80,6 +83,42 @@ def _rule_based_answer(question: str, org, tool_results: dict) -> str:
         )
         return f"Customers with late payment history:\n{lines}"
 
+
+    if any(k in q for k in ["invoice", "invoic", "new invoice", "latest invoice", "recent"]):
+        invoices_due = tool_results.get("due_invoices", [])
+        top_cust = tool_results.get("top_customers", [])
+        if invoices_due:
+            lines = "\n".join(
+                f"  {inv['invoice_number']} — {inv['customer_name']} — due {inv['due_date']} — {fmt(inv['outstanding_minor'])}"
+                for inv in invoices_due[:10]
+            )
+            return f"Here are your upcoming invoices:\n{lines}"
+        elif top_cust:
+            lines = "\n".join(
+                f"  {i+1}. {c['name']} — {fmt(c['overdue_minor'])} overdue ({c['invoice_count']} invoices)"
+                for i, c in enumerate(top_cust[:5])
+            )
+            return f"No upcoming invoices found, but here are your top customers with outstanding balances:\n{lines}"
+        return "No outstanding or upcoming invoices found in your records."
+
+    if any(k in q for k in ["who", "which", "list", "show", "all"]):
+        # General "who/which" questions — show a summary of key data
+        parts = []
+        if summary.get("outstanding_minor", 0) > 0:
+            parts.append(f"Total outstanding: {fmt(summary['outstanding_minor'])} {currency}")
+        if summary.get("overdue_minor", 0) > 0:
+            parts.append(f"Overdue: {fmt(summary['overdue_minor'])} {currency}")
+        top_cust = tool_results.get("top_customers", [])
+        if top_cust:
+            cust_lines = ", ".join(f"{c['name']} ({fmt(c['overdue_minor'])})" for c in top_cust[:3])
+            parts.append(f"Top overdue customers: {cust_lines}")
+        invoices_due = tool_results.get("due_invoices", [])
+        if invoices_due:
+            parts.append(f"{len(invoices_due)} invoice(s) due in the next 7 days")
+        if parts:
+            return "Here is a summary of your financial position:\n  " + "\n  ".join(parts)
+        return "No outstanding financial data found in your records."
+
     return (
         "I can answer questions about your outstanding receivables, overdue customers, "
         "upcoming due dates, cash inflow forecasts, and payment history. "
@@ -138,12 +177,34 @@ def ask_assistant(request):
 
     # Try AI provider if configured
     answer = None
-    if settings.OPENAI_API_KEY:
+    prompt_tokens = completion_tokens = 0
+    
+    # Check which AI provider is configured
+    ai_provider = getattr(settings, 'AI_PROVIDER', 'openai')
+    api_key = None
+    base_url = None
+    model = None
+    
+    if ai_provider == 'grok' and hasattr(settings, 'GROK_API_KEY') and settings.GROK_API_KEY:
+        api_key = settings.GROK_API_KEY
+        base_url = getattr(settings, 'GROK_BASE_URL', 'https://api.x.ai/v1')
+        model = getattr(settings, 'GROK_MODEL', 'grok-beta')
+        provider = "grok"
+        model_identifier = model
+    elif settings.OPENAI_API_KEY:
+        api_key = settings.OPENAI_API_KEY
+        provider = "openai"
+        model_identifier = "gpt-4o-mini"
+        model = model_identifier
+    
+    if api_key:
         try:
             import openai
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            provider = "openai"
-            model_identifier = "gpt-4o-mini"
+            # Grok API is OpenAI-compatible
+            if base_url:
+                client = openai.OpenAI(api_key=api_key, base_url=base_url)
+            else:
+                client = openai.OpenAI(api_key=api_key)
 
             system_prompt = (
                 "You are a read-only financial assistant for an Indian business. "
@@ -155,7 +216,7 @@ def ask_assistant(request):
             )
 
             response = client.chat.completions.create(
-                model=model_identifier,
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": question},
@@ -167,11 +228,14 @@ def ask_assistant(request):
             prompt_tokens = response.usage.prompt_tokens
             completion_tokens = response.usage.completion_tokens
         except Exception as exc:
+            import traceback
+            logger.warning("AI provider (%s) failed: %s", provider, exc)
+            logger.debug(traceback.format_exc())
             ai_status = AIRun.Status.UNAVAILABLE
-            answer = "The AI service is temporarily unavailable. Please try again later."
+            # Graceful fallback: use rule-based answer instead of showing error
+            answer = _rule_based_answer(question, org, tool_results)
             prompt_tokens = completion_tokens = 0
     else:
-        prompt_tokens = completion_tokens = 0
         answer = _rule_based_answer(question, org, tool_results)
 
     # Log usage metadata (no question/answer content in log)
