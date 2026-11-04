@@ -168,6 +168,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
 GROK_BASE_URL = os.getenv("GROK_BASE_URL", "https://api.x.ai/v1")
 GROK_MODEL = os.getenv("GROK_MODEL", "grok-beta")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 # Webhook signing secrets
 EMAIL_WEBHOOK_SECRET = os.getenv("EMAIL_WEBHOOK_SECRET", "")

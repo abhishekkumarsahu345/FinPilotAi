@@ -104,6 +104,40 @@ python manage.py createsuperuser
 
 At the `createsuperuser` prompts, use your email address as both the username and email so you can sign in with your work email. Organization onboarding is available in the app after signing in. During local development, the API uses Django session authentication and CSRF protection.
 
+## Test accounts (local dev only)
+
+The following user accounts exist in the local database. Use any of these to sign in at `http://localhost:5173`.
+
+> **Passwords are not stored in plain text.** If you don't remember a password, reset it with:
+> ```powershell
+> cd backend
+> .\.venv\Scripts\Activate.ps1
+> python manage.py changepassword <email>
+> ```
+
+| Email | Name | Role |
+|---|---|---|
+| `abhishekkumarsahu345@gmail.com` | — | Superuser (admin) |
+| `livetest99@example.com` | Test User | Member |
+| `apitest@finpilot.test` | Test Owner | Member |
+| `test@finpilot.local` | Test User | Member |
+
+### Where is the logout button?
+
+After signing in, look at the **bottom-left corner** of the sidebar. You will see:
+
+```
+[A]  Your name          [Sign out →]
+     your@email.com
+```
+
+- The circular letter badge is your avatar
+- Your name and email are shown next to it
+- The **"Sign out"** button (with a logout icon) is on the right side of that row
+- Clicking it ends your session and returns you to the login screen
+
+---
+
 ## Current feature set
 - User accounts, organizations, and organization memberships with role checks.
 - Customer register and invoice register.
@@ -115,3 +149,11 @@ At the `createsuperuser` prompts, use your email address as both the username an
 Reminders require approval by default; no outbound provider is wired. AI assistant, bank import, subscription billing, OCR, and automatic messaging are not enabled until providers, data contracts, and credentials are chosen. No payment execution, bank credential collection, or automatic reconciliation is included. Do not use with production financial data until security, backup, and deployment reviews are complete.
 
 See `docs/` for architecture, business rules, data model, and setup decisions. Provider keys belong in environment configuration, never source control.
+
+
+
+
+Password has been reset. You can now log in with:
+
+Email: test@finpilot.local
+Password: Test@1234

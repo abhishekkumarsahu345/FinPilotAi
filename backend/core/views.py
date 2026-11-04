@@ -549,12 +549,18 @@ def register(request):
 @api_view(["POST"])
 def sign_out(request):
     if request.user.is_authenticated:
+        import uuid
+        request_id = str(uuid.uuid4())
         AuditLog.objects.create(
             actor=request.user,
             action="auth.logout",
             entity_type="user",
             entity_id=str(request.user.id),
             summary=f"User {request.user.email} signed out",
+            request_id=request_id,
         )
+        logout(request)
+        return Response({"detail": "Signed out", "request_id": request_id})
+    # Already unauthenticated — idempotent success
     logout(request)
     return Response({"detail": "Signed out"})

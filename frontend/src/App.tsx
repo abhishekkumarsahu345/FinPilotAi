@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, CircleHelp, Clock3,
   FileSpreadsheet, FileText, LayoutDashboard, LogOut, Plus, Search,
@@ -6,7 +6,8 @@ import {
   TrendingUp, Download, CheckCircle, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import {
-  api, money, fmtDate,
+  api, ApiError, money, fmtDate,
+  setUnauthenticatedHandler, broadcastLogout, subscribeLogoutChannel,
   type User, type Org, type Invoice, type Customer,
   type Payment, type DashboardData, type AgingData, type ForecastData, type Notification,
 } from './lib/api'
@@ -313,6 +314,11 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
 
+  // Logout state
+  const [logoutConfirm, setLogoutConfirm] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const logoutCancelRef = useRef<HTMLButtonElement>(null)
+
   // Data state
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -326,8 +332,13 @@ export default function App() {
   // AI assistant
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
+  const [aiError, setAiError] = useState<{ type: string; message: string; requestId?: string } | null>(null)
   const [asking, setAsking] = useState(false)
-  const [sessionId] = useState(() => crypto.randomUUID())
+  const [sessionId] = useState(() =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  )
 
   const loadData = useCallback(async (activeOrg: Org) => {
     try {
@@ -374,19 +385,82 @@ export default function App() {
     if (org) { loadData(org); loadNotifications(org) }
   }, [org?.id])
 
-  const logout = async () => {
-    await api.logout(org?.id)
-    setUser(null); setOrg(null)
-  }
+  const clearAuth = useCallback(() => {
+    setUser(null)
+    setOrg(null)
+    setDashboard(null)
+    setInvoices([])
+    setCustomers([])
+    setPayments([])
+    setAging(null)
+    setForecast(null)
+    setNotifications([])
+    setUnreadCount(0)
+    setLogoutConfirm(false)
+    setLoggingOut(false)
+  }, [])
+
+  const logout = useCallback(async () => {
+    setLoggingOut(true)
+    try {
+      await api.logout(org?.id)
+    } catch {
+      // Proceed even if backend call fails — clear client state regardless
+    }
+    broadcastLogout()
+    clearAuth()
+    setNotice('Logged out successfully.')
+  }, [org?.id, clearAuth])
+
+  // 401 global handler: any protected request that returns 401 auto-clears auth
+  useEffect(() => {
+    setUnauthenticatedHandler(() => {
+      clearAuth()
+      setNotice('Your session expired. Please sign in again.')
+    })
+  }, [clearAuth])
+
+  // Cross-tab logout: if another tab logs out, clear this tab too
+  useEffect(() => {
+    const unsub = subscribeLogoutChannel(() => {
+      clearAuth()
+      // No toast here — only the initiating tab shows "Logged out successfully"
+    })
+    return unsub
+  }, [clearAuth])
+
+  // Auto-dismiss notice after 4 seconds
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(''), 4000)
+    return () => clearTimeout(t)
+  }, [notice])
 
   const askAI = async (e: React.FormEvent) => {
     e.preventDefault(); if (!question.trim() || !org) return
-    setAsking(true); setAnswer('')
+    setAsking(true); setAnswer(''); setAiError(null)
     try {
       const r = await api.ask(org.id, question, sessionId)
       setAnswer(r.answer)
-    } catch (err) {
-      setAnswer('Unable to get an answer. Please try again.')
+    } catch (err: unknown) {
+      const apiErr = err instanceof ApiError ? err : null
+      const errorType = apiErr?.error_type ?? 'unknown_error'
+      let userMessage: string
+
+      if (errorType === 'llm_quota_exceeded') {
+        userMessage = 'Your AI API quota is exhausted. Open the .env file, replace the API key with a fresh one, and restart the backend.'
+      } else if (errorType === 'llm_unavailable') {
+        userMessage = apiErr?.message || 'The AI service is unavailable. Check that your API key is valid in the .env file and restart the backend.'
+      } else if (errorType === 'llm_api_error') {
+        userMessage = 'The AI service encountered an error. Please try again in a moment.'
+      } else if (errorType === 'validation_error') {
+        userMessage = apiErr?.message || 'Invalid question. Please rephrase and try again.'
+      } else {
+        userMessage = apiErr?.message || 'Unable to get an answer. Please try again.'
+      }
+
+      setAiError({ type: errorType, message: userMessage, requestId: apiErr?.request_id })
+      console.error('[AI Assistant Error]', { errorType, message: apiErr?.message, requestId: apiErr?.request_id })
     } finally { setAsking(false) }
   }
 
@@ -460,8 +534,16 @@ export default function App() {
           <div className="profile">
             <div className="avatar">{user.full_name?.slice(0, 1) || user.email.slice(0, 1)}</div>
             <span><strong>{user.full_name || user.email}</strong><small>{user.email}</small></span>
-            <button onClick={logout} title="Sign out"><LogOut size={16} /></button>
           </div>
+          <button
+            onClick={() => setLogoutConfirm(true)}
+            title="Sign out"
+            className="logout-row-btn"
+            disabled={loggingOut}
+            aria-label="Sign out"
+          >
+            <LogOut size={15} /><span>{loggingOut ? 'Signing out…' : 'Sign out'}</span>
+          </button>
         </div>
       </aside>
 
@@ -475,6 +557,16 @@ export default function App() {
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
             <button className="icon-btn" title="Help"><CircleHelp size={18} /></button>
+            {/* Mobile logout — hidden on desktop via CSS class */}
+            <button
+              className="icon-btn logout-btn-mobile"
+              title="Sign out"
+              aria-label="Sign out"
+              disabled={loggingOut}
+              onClick={() => setLogoutConfirm(true)}
+            >
+              <LogOut size={18} />
+            </button>
             <div className="avatar mini">{user.full_name?.slice(0, 1) || 'U'}</div>
           </div>
         </header>
@@ -540,7 +632,7 @@ export default function App() {
               <div className="tip-card">
                 <div className="tip-icon"><Bot size={18} /></div>
                 <div className="eyebrow">AI FINANCE ASSISTANT</div>
-                <h3>Ask about your<br />receivables.</h3>
+                <h3>Ask about your<br />financial Transactions.</h3>
                 <p>Get instant answers about outstanding balances, overdue customers, and cash flow forecasts.</p>
                 <button onClick={() => setPage('AI Assistant')}>Open AI assistant <span>→</span></button>
               </div>
@@ -666,7 +758,7 @@ export default function App() {
           {page === 'AI Assistant' && (
             <div className="panel ai-panel">
               <div className="panel-head">
-                <div><h2>AI Finance Assistant</h2><p>Ask questions about your receivables — answers are based on your live data.</p></div>
+                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord — answers are based on your live data.</p></div>
               </div>
               <div className="ai-body">
                 <div className="ai-disclaimer">
@@ -684,13 +776,31 @@ export default function App() {
                     {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking…</> : <><Bot size={15} /> Ask</>}
                   </button>
                 </form>
-                {answer && (
+
+                {/* Error banner — shown instead of the answer box */}
+                {aiError && (
+                  <div className={`ai-error-banner ${aiError.type === 'llm_quota_exceeded' ? 'ai-error-quota' : 'ai-error-generic'}`}>
+                    <div className="ai-error-header">
+                      <AlertCircle size={15} />
+                      <span>{aiError.type === 'llm_quota_exceeded' ? 'API Quota Exhausted' : 'Assistant Unavailable'}</span>
+                      <button className="ai-error-dismiss" onClick={() => setAiError(null)} aria-label="Dismiss"><X size={13} /></button>
+                    </div>
+                    <p>{aiError.message}</p>
+                    {aiError.requestId && (
+                      <span className="ai-error-id">Request ID: {aiError.requestId}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Answer box — only shown on success */}
+                {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{answer}</p>
                   </div>
                 )}
-                {!answer && !asking && (
+
+                {!answer && !aiError && !asking && (
                   <div className="ai-suggestions">
                     <p>Try asking:</p>
                     <div className="ai-chips">
@@ -777,6 +887,51 @@ export default function App() {
       )}
       {modal === 'payment' && (
         <PaymentModal customers={customers} invoices={invoices} orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
+      )}
+
+      {/* ── Logout confirm dialog ─────────────────────────────────────── */}
+      {logoutConfirm && (
+        <div
+          className="backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-dialog-title"
+          onMouseDown={e => { if (e.target === e.currentTarget && !loggingOut) setLogoutConfirm(false) }}
+        >
+          <section className="modal" style={{ maxWidth: 380 }}>
+            <div className="modal-head">
+              <div><div className="eyebrow">ACCOUNT</div><h2 id="logout-dialog-title">Sign out?</h2></div>
+              <button
+                className="icon-btn"
+                onClick={() => setLogoutConfirm(false)}
+                disabled={loggingOut}
+                aria-label="Cancel"
+              ><X size={18} /></button>
+            </div>
+            <p style={{ fontSize: 13, color: '#526059', margin: '4px 0 20px', lineHeight: 1.6 }}>
+              You'll be returned to the sign-in screen. Any unsaved work will be lost.
+            </p>
+            <div className="modal-foot">
+              <button
+                ref={logoutCancelRef}
+                type="button"
+                className="secondary"
+                onClick={() => setLogoutConfirm(false)}
+                disabled={loggingOut}
+                autoFocus
+              >Cancel</button>
+              <button
+                className="primary"
+                onClick={logout}
+                disabled={loggingOut}
+                aria-busy={loggingOut}
+                data-testid="confirm-logout-btn"
+              >
+                <LogOut size={15} />{loggingOut ? 'Signing out…' : 'Sign out'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   )

@@ -62,7 +62,7 @@ The following tasks have been implemented. Items marked `[x]` are done and verif
   - [x] 6.5 Customer opt-out/opt-in endpoints
   - [x] 6.6 Reminder job approval queue — approve/reject endpoints with final eligibility check
   - [x] 6.7 Idempotency: unique constraint on (policy, invoice, scheduled_date) for active jobs
-  - [~] 6.8 Celery Beat scheduler task — stubbed, needs periodic task registration in django-celery-beat
+  - [ ] 6.8 Celery Beat scheduler task — stubbed, needs periodic task registration in django-celery-beat
 
 - [x] 7. Messaging provider abstraction
   - [x] 7.1 `MessageLog` model with 6-state lifecycle (queued/sent/delivered/failed/cancelled/unknown)
@@ -70,7 +70,7 @@ The following tasks have been implemented. Items marked `[x]` are done and verif
   - [x] 7.3 Exponential backoff retry: 30s, 60s, 120s, 240s, 480s (max 5 attempts, max delay 1800s)
   - [x] 7.4 Email provider via Django's `send_mail` (console backend in dev, SMTP/SES in prod)
   - [x] 7.5 Notification creation on delivery failure
-  - [~] 7.6 Webhook endpoints — not yet implemented (requires provider credentials)
+  - [ ] 7.6 Webhook endpoints — not yet implemented (requires provider credentials)
 
 - [x] 8. Bank statement import and reconciliation
   - [x] 8.1 `BankTransaction` and `ReconciliationMatch` models
@@ -105,20 +105,20 @@ The following tasks have been implemented. Items marked `[x]` are done and verif
 - [x] 12. Subscriptions and plan controls
   - [x] 12.1 `Plan`, `Subscription`, `BillingEvent` models
   - [x] 12.2 Subscription status endpoint
-  - [~] 12.3 Entitlement enforcement — models ready, enforcement calls not yet wired into all write paths
+  - [ ] 12.3 Entitlement enforcement — models ready, enforcement calls not yet wired into all write paths
   - [ ] 12.4 Billing webhook processing — requires provider credentials
   - [ ] 12.5 Plan seed data migration — needs initial plan definitions
 
 - [x] 13. Platform administration
   - [x] 13.1 `IsStaffPermission` permission class
   - [x] 13.2 Org list, user list, platform audit log endpoints
-  - [~] 13.3 Account suspend/reactivate — endpoints not yet exposed
+  - [ ] 13.3 Account suspend/reactivate — endpoints not yet exposed
   - [ ] 13.4 Support access flow — not yet implemented
 
 - [x] 14. Data export
   - [x] 14.1 CSV export endpoints for invoices, customers, payments
   - [x] 14.2 All exports are org-scoped and audit logged
-  - [~] 14.3 Large exports (>1000 rows) — synchronous for now, needs async Celery delegation
+  - [ ] 14.3 Large exports (>1000 rows) — synchronous for now, needs async Celery delegation
 
 - [x] 15. Frontend
   - [x] 15.1 API client module (`lib/api.ts`) with typed interfaces

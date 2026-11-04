@@ -84,6 +84,59 @@ function headers(orgId?: string): Record<string, string> {
   return h
 }
 
+// ── 401 global handler ──────────────────────────────────────────────────────
+// App.tsx registers a callback here so that any 401 anywhere auto-clears auth.
+type OnUnauthenticated = () => void
+let _onUnauthenticated: OnUnauthenticated | null = null
+export function setUnauthenticatedHandler(fn: OnUnauthenticated) {
+  _onUnauthenticated = fn
+}
+
+// ── Cross-tab logout via BroadcastChannel ───────────────────────────────────
+// Emits 'logout' so other open tabs can clear their state.
+const LOGOUT_CHANNEL = 'finpilot_auth'
+export function broadcastLogout() {
+  try {
+    const ch = new BroadcastChannel(LOGOUT_CHANNEL)
+    ch.postMessage({ type: 'logout' })
+    ch.close()
+  } catch {
+    // BroadcastChannel not available (e.g. Firefox private mode) — fall back to localStorage
+    try { localStorage.setItem('finpilot_logout', String(Date.now())) } catch { /* ignore */ }
+  }
+}
+export function subscribeLogoutChannel(handler: () => void): () => void {
+  let bc: BroadcastChannel | null = null
+  let storageHandler: ((e: StorageEvent) => void) | null = null
+  try {
+    bc = new BroadcastChannel(LOGOUT_CHANNEL)
+    bc.onmessage = (e) => { if (e.data?.type === 'logout') handler() }
+  } catch {
+    storageHandler = (e: StorageEvent) => {
+      if (e.key === 'finpilot_logout') handler()
+    }
+    window.addEventListener('storage', storageHandler)
+  }
+  return () => {
+    bc?.close()
+    if (storageHandler) window.removeEventListener('storage', storageHandler)
+  }
+}
+
+// Structured API error — preserves error_type and request_id from backend
+export class ApiError extends Error {
+  error_type: string
+  request_id?: string
+  status: number
+  constructor(message: string, error_type: string, status: number, request_id?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.error_type = error_type
+    this.request_id = request_id
+    this.status = status
+  }
+}
+
 async function request<T>(
   method: string, path: string, body?: unknown, orgId?: string
 ): Promise<T> {
@@ -95,7 +148,17 @@ async function request<T>(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Network error' }))
-    throw new Error(err.detail || JSON.stringify(err))
+    // Prefer structured backend error shape {error, error_type, request_id}
+    // Fall back to DRF {detail} shape, then raw JSON
+    const message = err.error || err.detail || 'An unexpected error occurred.'
+    const error_type = err.error_type || 'unknown_error'
+    const request_id = err.request_id
+    const apiErr = new ApiError(message, error_type, res.status, request_id)
+    // Auto-clear auth on any 401
+    if (res.status === 401) {
+      _onUnauthenticated?.()
+    }
+    throw apiErr
   }
   const text = await res.text()
   return text ? JSON.parse(text) : ({} as T)
