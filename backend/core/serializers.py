@@ -19,12 +19,13 @@ class OrganizationSerializer(serializers.ModelSerializer):
         model = Organization
         fields = [
             "id", "name", "legal_name", "trading_name", "business_email",
-            "contact_phone", "country", "default_currency", "timezone",
+            "contact_phone", "country", "state", "default_currency", "timezone",
             "billing_address", "status", "created_at",
         ]
         read_only_fields = ["id", "status", "created_at"]
 
     def create(self, validated_data):
+        from products.gst import create_default_gst_rates
         with transaction.atomic():
             org = Organization.objects.create(**validated_data)
             Membership.objects.create(
@@ -32,6 +33,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 user=self.context["request"].user,
                 role=Membership.Role.OWNER,
             )
+            # Seed default GST rates for the new organization.
+            create_default_gst_rates(org)
             AuditLog.objects.create(
                 organization=org,
                 actor=self.context["request"].user,
@@ -62,7 +65,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             "id", "name", "contact_name", "email", "phone", "billing_address",
-            "gstin", "payment_terms_days", "notes", "active",
+            "gstin", "state", "payment_terms_days", "notes", "active",
             "opt_out", "opt_out_recorded_at", "created_at",
         ]
         read_only_fields = ["id", "opt_out_recorded_at", "created_at"]
@@ -132,10 +135,15 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvoiceItem
         fields = [
-            "id", "description", "quantity", "unit_price_minor",
+            "id", "product", "description", "quantity", "unit_price_minor",
             "discount_minor", "line_total_minor", "sort_order",
+            "gst_rate_bps", "gst_rate_name", "hsn_sac",
+            "gst_tax_minor", "gst_cgst_minor", "gst_sgst_minor", "gst_igst_minor",
         ]
-        read_only_fields = ["id", "line_total_minor"]
+        read_only_fields = [
+            "id", "line_total_minor",
+            "gst_tax_minor", "gst_cgst_minor", "gst_sgst_minor", "gst_igst_minor",
+        ]
 
     def validate(self, data):
         qty = data.get("quantity", 1)
@@ -151,7 +159,21 @@ class InvoiceItemSerializer(serializers.ModelSerializer):
         line_total = math.floor(float(qty) * unit) - disc
         if line_total <= 0:
             raise serializers.ValidationError("Line total must be positive after discount.")
+
+        # ── GST (server-computed via the single GST service) ──────────────
+        rate_bps = data.get("gst_rate_bps", 0) or 0
+        if rate_bps < 0:
+            raise serializers.ValidationError({"gst_rate_bps": "GST rate cannot be negative."})
+        # Taxable value is the line total after line discount.
+        from products.gst import compute_line_tax_minor
         data["line_total_minor"] = line_total
+        data["gst_tax_minor"] = compute_line_tax_minor(line_total, rate_bps)
+        # The CGST/SGST/IGST split depends on place of supply (invoice-level),
+        # so it is set by the parent InvoiceSerializer after validating the
+        # customer/organization states.
+        data["gst_cgst_minor"] = 0
+        data["gst_sgst_minor"] = 0
+        data["gst_igst_minor"] = 0
         return data
 
 
@@ -165,6 +187,8 @@ class InvoiceSerializer(serializers.ModelSerializer):
     balance_minor = serializers.SerializerMethodField()
     display_status = serializers.SerializerMethodField()
     items = InvoiceItemSerializer(many=True, required=False)
+    gst_summary = serializers.SerializerMethodField()
+    gst_warning = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -174,9 +198,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "subtotal_minor", "discount_minor", "tax_minor", "total_minor",
             "status", "source", "notes",
             "paid_minor", "balance_minor", "display_status",
-            "items", "created_at",
+            "items", "gst_summary", "gst_warning", "created_at",
         ]
         read_only_fields = ["id", "total_minor", "source", "created_at"]
+        # subtotal_minor is required for header-only invoices (no items), but is
+        # server-computed from line items when `items` are provided. Make it
+        # optional at the field level and enforce the presence/positivity rule in
+        # validate().
+        extra_kwargs = {"subtotal_minor": {"required": False}}
 
     def get_paid_minor(self, obj):
         return sum(
@@ -201,6 +230,68 @@ class InvoiceSerializer(serializers.ModelSerializer):
             return "overdue"
         return "issued"
 
+    def get_gst_warning(self, obj):
+        """Place-of-supply warning stored on the invoice at write time."""
+        return getattr(obj, "_gst_warning", "") or ""
+
+    def get_gst_summary(self, obj):
+        """Rate-wise GST breakdown, aggregated from stored line snapshots.
+
+        Read-only: this only reads stored values; it never calculates GST.
+        If no line carries GST, has_gst is False (the UI hides the GST section).
+        """
+        from products.gst import rate_label
+
+        items = list(obj.items.all())
+        rates = {}
+        totals = {
+            "taxable_minor": 0,
+            "cgst_minor": 0, "sgst_minor": 0, "igst_minor": 0,
+            "tax_minor": 0,
+        }
+        has_gst = False
+        for it in items:
+            key = it.gst_rate_bps or 0
+            g = rates.setdefault(key, {
+                "rate_bps": key, "rate_label": rate_label(key) if key else "No GST",
+                "taxable_minor": 0, "cgst_minor": 0, "sgst_minor": 0,
+                "igst_minor": 0, "tax_minor": 0, "line_count": 0,
+            })
+            g["taxable_minor"] += it.line_total_minor
+            g["cgst_minor"] += it.gst_cgst_minor
+            g["sgst_minor"] += it.gst_sgst_minor
+            g["igst_minor"] += it.gst_igst_minor
+            g["tax_minor"] += it.gst_tax_minor
+            g["line_count"] += 1
+            totals["taxable_minor"] += it.line_total_minor
+            totals["cgst_minor"] += it.gst_cgst_minor
+            totals["sgst_minor"] += it.gst_sgst_minor
+            totals["igst_minor"] += it.gst_igst_minor
+            totals["tax_minor"] += it.gst_tax_minor
+            if it.gst_tax_minor > 0:
+                has_gst = True
+
+        # Place-of-supply classification
+        org_state = obj.organization.state if hasattr(obj.organization, "state") else ""
+        cust_state = obj.customer.state if hasattr(obj.customer, "state") else ""
+        if not org_state or not cust_state:
+            pos = "unknown"
+        elif org_state == cust_state:
+            pos = "intra_state"
+        else:
+            pos = "inter_state"
+
+        return {
+            "has_gst": has_gst,
+            "place_of_supply": pos,
+            "warning": self.get_gst_warning(obj),
+            "rates": [rates[k] for k in sorted(rates)],
+            "totals": {
+                **totals,
+                "grand_total_minor": obj.total_minor,
+            },
+        }
+
     def validate(self, data):
         req = self.context["request"]
         org = req.membership.organization
@@ -216,9 +307,34 @@ class InvoiceSerializer(serializers.ModelSerializer):
                 {"currency": f"Invoice currency must match the organization default ({org.default_currency})."}
             )
 
-        subtotal = data.get("subtotal_minor", getattr(self.instance, "subtotal_minor", 0))
+        items_data = data.get("items", None)
+
+        # ── Determine place of supply (intra vs inter-state) ─────────────
+        from products.gst import determine_place_of_supply, split_line_tax
+        is_intra, gst_warning = determine_place_of_supply(org.state or "", customer.state or "")
+
+        # ── Compute totals ───────────────────────────────────────────────
+        # When line items are provided, the server computes subtotal and tax
+        # from the items (the frontend preview is display-only). When no items
+        # are provided (e.g. file import, or a header-only update), the
+        # supplied subtotal/tax are used as-is — preserving existing behavior.
+        if items_data:
+            subtotal = sum(it["line_total_minor"] for it in items_data)
+            tax = sum(it.get("gst_tax_minor", 0) for it in items_data)
+            data["subtotal_minor"] = subtotal
+            data["tax_minor"] = tax
+            # Apply the CGST/SGST/IGST split to each line based on place of supply.
+            for it in items_data:
+                cgst, sgst, igst = split_line_tax(it.get("gst_tax_minor", 0), is_intra)
+                it["gst_cgst_minor"] = cgst
+                it["gst_sgst_minor"] = sgst
+                it["gst_igst_minor"] = igst
+        else:
+            subtotal = data.get("subtotal_minor", getattr(self.instance, "subtotal_minor", 0))
+            discount = data.get("discount_minor", getattr(self.instance, "discount_minor", 0))
+            tax = data.get("tax_minor", getattr(self.instance, "tax_minor", 0))
+
         discount = data.get("discount_minor", getattr(self.instance, "discount_minor", 0))
-        tax = data.get("tax_minor", getattr(self.instance, "tax_minor", 0))
         if subtotal <= 0:
             raise serializers.ValidationError({"subtotal_minor": "Subtotal must be positive."})
         if discount < 0:
@@ -229,11 +345,16 @@ class InvoiceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"discount_minor": "Discount cannot exceed subtotal."}
             )
+
         data["_calculated_total"] = subtotal - discount + tax
+        data["_gst_warning"] = gst_warning
+        data["_has_items"] = bool(items_data)
         return data
 
     def create(self, data):
         total = data.pop("_calculated_total")
+        gst_warning = data.pop("_gst_warning", "")
+        data.pop("_has_items", False)
         items_data = data.pop("items", [])
         req = self.context["request"]
         with transaction.atomic():
@@ -243,6 +364,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
                 total_minor=total,
                 **data,
             )
+            invoice._gst_warning = gst_warning
             for idx, item_data in enumerate(items_data):
                 item_data["sort_order"] = idx
                 InvoiceItem.objects.create(
@@ -262,7 +384,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     def update(self, instance, data):
         total = data.pop("_calculated_total")
-        data.pop("items", None)  # Item edits handled via dedicated endpoints
+        gst_warning = data.pop("_gst_warning", "")
+        has_items = data.pop("_has_items", False)
+        items_data = data.pop("items", []) if has_items else None
         req = self.context["request"]
         # Guard against changing totals when allocations exist
         active_allocs = instance.allocations.filter(reversed_at__isnull=True)
@@ -280,6 +404,17 @@ class InvoiceSerializer(serializers.ModelSerializer):
             instance.total_minor = total
             instance.updated_by = req.user
             instance.save()
+            # Replace line items when provided (supports editing GST on an invoice).
+            if items_data is not None:
+                instance.items.all().delete()
+                for idx, item_data in enumerate(items_data):
+                    item_data["sort_order"] = idx
+                    InvoiceItem.objects.create(
+                        organization=instance.organization,
+                        invoice=instance,
+                        **item_data,
+                    )
+            instance._gst_warning = gst_warning
             AuditLog.objects.create(
                 organization=instance.organization,
                 actor=req.user,
@@ -340,7 +475,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         amount = data.get("amount_minor", getattr(self.instance, "amount_minor", 0))
         if amount <= 0:
             raise serializers.ValidationError(
-                {"amount_minor": "Payment amount must be a positive integer."}
+                {"amount_minor": "Payment amount must be positive."}
             )
         currency = data.get("currency", getattr(self.instance, "currency", org.default_currency))
         if currency != org.default_currency:
@@ -377,7 +512,8 @@ class PaymentSerializer(serializers.ModelSerializer):
         alloc_total = sum(x["amount_minor"] for x in allocations)
         if alloc_total > amount:
             raise serializers.ValidationError(
-                "Total allocation amount exceeds payment amount."
+                f"Total allocation of ₹{alloc_total / 100:,.2f} exceeds "
+                f"payment amount of ₹{amount / 100:,.2f}."
             )
         seen_invoices = set()
         for item in allocations:
@@ -400,9 +536,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             )
             if item["amount_minor"] > inv.total_minor - active_paid:
                 raise serializers.ValidationError(
-                    f"Allocation of {item['amount_minor']} paise exceeds "
+                    f"Allocation of ₹{item['amount_minor'] / 100:,.2f} exceeds "
                     f"invoice {inv.invoice_number} outstanding balance of "
-                    f"{inv.total_minor - active_paid} paise."
+                    f"₹{(inv.total_minor - active_paid) / 100:,.2f}."
                 )
         return data
 

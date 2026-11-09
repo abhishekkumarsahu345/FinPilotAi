@@ -5,14 +5,44 @@
 
 export type Org = { id: string; name: string; role: string; currency: string }
 export type User = { id: number; email: string; full_name: string; organizations: Org[] }
+export type OrganizationDetail = Org & {
+  state: string; legal_name: string; trading_name: string
+  business_email: string; contact_phone: string; billing_address: string
+}
 export type Customer = {
   id: string; name: string; contact_name: string; email: string; phone: string
-  billing_address: string; gstin: string; payment_terms_days: number
+  billing_address: string; gstin: string; state: string; payment_terms_days: number
   active: boolean; opt_out: boolean; created_at: string
 }
+export type GSTRate = {
+  id: string; name: string; rate_bps: number; active: boolean
+  rate_percent: string; cgst_percent: string; sgst_percent: string; igst_percent: string
+  preview: string; in_use: boolean; created_at: string
+}
+export type Product = {
+  id: string; name: string; description: string; unit: string; sku: string
+  hsn_sac: string; price_minor: number; default_gst_rate: string | null
+  default_gst_rate_bps: number; default_gst_rate_name: string
+  default_gst_rate_preview: string; active: boolean; created_at: string
+}
 export type InvoiceItem = {
-  id: string; description: string; quantity: number
+  id: string; product: string | null; description: string; quantity: number
   unit_price_minor: number; discount_minor: number; line_total_minor: number
+  sort_order: number
+  gst_rate_bps: number; gst_rate_name: string; hsn_sac: string
+  gst_tax_minor: number; gst_cgst_minor: number; gst_sgst_minor: number; gst_igst_minor: number
+}
+export type GstSummary = {
+  has_gst: boolean; place_of_supply: string; warning: string
+  rates: {
+    rate_bps: number; rate_label: string; taxable_minor: number
+    cgst_minor: number; sgst_minor: number; igst_minor: number
+    tax_minor: number; line_count: number
+  }[]
+  totals: {
+    taxable_minor: number; cgst_minor: number; sgst_minor: number
+    igst_minor: number; tax_minor: number; grand_total_minor: number
+  }
 }
 export type Invoice = {
   id: string; customer: string; customer_name: string
@@ -20,7 +50,8 @@ export type Invoice = {
   currency: string; subtotal_minor: number; discount_minor: number
   tax_minor: number; total_minor: number; status: string
   paid_minor: number; balance_minor: number; display_status: string
-  items: InvoiceItem[]; created_at: string
+  items: InvoiceItem[]; gst_summary: GstSummary; gst_warning: string
+  created_at: string
 }
 export type Payment = {
   id: string; customer: string; payment_date: string; amount_minor: number
@@ -28,10 +59,11 @@ export type Payment = {
   allocations: { id: string; invoice: string; invoice_number: string; amount_minor: number }[]
   unallocated_minor: number; created_at: string
 }
-export type AuditLog = {
-  id: number; action: string; entity_type: string; entity_id: string
-  summary: string; actor_name: string; created_at: string
-}
+// AUDIT LOG DISABLED — uncomment to re-enable
+// export type AuditLog = {
+//   id: number; action: string; entity_type: string; entity_id: string
+//   summary: string; actor_name: string; created_at: string
+// }
 export type Notification = {
   id: string; event_type: string; entity_type: string; entity_id: string
   payload: Record<string, unknown>; read: boolean; created_at: string
@@ -52,12 +84,13 @@ export type AgingData = {
     due_date: string; days_overdue: number; balance_minor: number
   }[]>
 }
-export type ForecastData = {
-  as_of: string; period_days: number; currency: string
-  insufficient_history: boolean
-  assumptions: Record<string, unknown>
-  scenarios: Record<string, { total_minor: number; lines: unknown[] }>
-}
+// FORECAST DISABLED — uncomment to re-enable
+// export type ForecastData = {
+//   as_of: string; period_days: number; currency: string
+//   insufficient_history: boolean
+//   assumptions: Record<string, unknown>
+//   scenarios: Record<string, { total_minor: number; lines: unknown[] }>
+// }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -137,20 +170,34 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
+async function request<T>(  // <T> = empty box = placeholder for the response type (we don't know yet)
+                            // Sending data to Django takes time, so we must wait for its response.
   method: string, path: string, body?: unknown, orgId?: string
-): Promise<T> {
-  const res = await fetch(path, {
+): Promise<T> {                    //This means the function will return a Promise containing the response data of type T.👇
+  const res = await fetch(path, {   //In simple words: this function sends a request and eventually gives us the backend response.
     method,
-    credentials: 'include',
+    credentials: 'include',  //include — relevant cookies are included.
     headers: headers(orgId),
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,   //Because JavaScript objects need to be converted into JSON text before being sent in a normal HTTP request body.
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Network error' }))
     // Prefer structured backend error shape {error, error_type, request_id}
-    // Fall back to DRF {detail} shape, then raw JSON
-    const message = err.error || err.detail || 'An unexpected error occurred.'
+    // Fall back to DRF {detail} shape, then DRF validation errors, then raw JSON
+    let message = err.error || err.detail || ''
+    // DRF serializer validation: {"non_field_errors": ["msg"]}
+    if (!message && err.non_field_errors) {
+      message = Array.isArray(err.non_field_errors) ? err.non_field_errors.join(' ') : String(err.non_field_errors)
+    }
+    // DRF field-level validation: {"field_name": ["msg"], ...}
+    if (!message) {
+      const skip = new Set(['error', 'detail', 'error_type', 'request_id', 'non_field_errors'])
+      const msgs = Object.entries(err)
+        .filter(([k]) => !skip.has(k))
+        .map(([, v]) => Array.isArray(v) ? v.join(' ') : String(v))
+      if (msgs.length) message = msgs.join(' ')
+    }
+    if (!message) message = 'An unexpected error occurred.'
     const error_type = err.error_type || 'unknown_error'
     const request_id = err.request_id
     const apiErr = new ApiError(message, error_type, res.status, request_id)
@@ -199,6 +246,8 @@ export const api = {
     request<{ results: Invoice[]; count: number }>('GET', '/api/v1/invoices/?page_size=200', undefined, orgId),
   createInvoice: (orgId: string, data: Record<string, unknown>) =>
     request<Invoice>('POST', '/api/v1/invoices/', data, orgId),
+  updateInvoice: (orgId: string, id: string, data: Record<string, unknown>) =>
+    request<Invoice>('PUT', `/api/v1/invoices/${id}/`, data, orgId),
   voidInvoice: (orgId: string, id: string) =>
     request<Invoice>('POST', `/api/v1/invoices/${id}/void/`, {}, orgId),
 
@@ -208,9 +257,37 @@ export const api = {
   createPayment: (orgId: string, data: Record<string, unknown>) =>
     request<Payment>('POST', '/api/v1/payments/', data, orgId),
 
-  // Forecast
-  forecast: (orgId: string, period: 7 | 30 | 60, timing = 'due_date') =>
-    request<ForecastData>('GET', `/api/v1/forecasts/?period=${period}&timing=${timing}`, undefined, orgId),
+  // Organization detail (incl. state for GST place-of-supply)
+  organization: (orgId: string) =>
+    request<OrganizationDetail>('GET', `/api/v1/organizations/${orgId}/`, undefined, orgId),
+
+  // GST rates
+  gstRates: (orgId: string) =>
+    request<{ results: GSTRate[]; count: number }>('GET', '/api/v1/gst-rates/?page_size=200', undefined, orgId),
+  createGstRate: (orgId: string, data: Partial<GSTRate>) =>
+    request<GSTRate>('POST', '/api/v1/gst-rates/', data, orgId),
+  updateGstRate: (orgId: string, id: string, data: Partial<GSTRate>) =>
+    request<GSTRate>('PATCH', `/api/v1/gst-rates/${id}/`, data, orgId),
+  deactivateGstRate: (orgId: string, id: string) =>
+    request<GSTRate>('POST', `/api/v1/gst-rates/${id}/deactivate/`, {}, orgId),
+  activateGstRate: (orgId: string, id: string) =>
+    request<GSTRate>('POST', `/api/v1/gst-rates/${id}/activate/`, {}, orgId),
+
+  // Products
+  products: (orgId: string, search?: string) =>
+    request<{ results: Product[]; count: number }>('GET', `/api/v1/products/?page_size=200${search ? `&search=${encodeURIComponent(search)}` : ''}`, undefined, orgId),
+  createProduct: (orgId: string, data: Partial<Product>) =>
+    request<Product>('POST', '/api/v1/products/', data, orgId),
+  updateProduct: (orgId: string, id: string, data: Partial<Product>) =>
+    request<Product>('PATCH', `/api/v1/products/${id}/`, data, orgId),
+  deactivateProduct: (orgId: string, id: string) =>
+    request<Product>('POST', `/api/v1/products/${id}/deactivate/`, {}, orgId),
+  activateProduct: (orgId: string, id: string) =>
+    request<Product>('POST', `/api/v1/products/${id}/activate/`, {}, orgId),
+
+  // FORECAST DISABLED — uncomment to re-enable
+  // forecast: (orgId: string, period: 7 | 30 | 60, timing = 'due_date') =>
+  //   request<ForecastData>('GET', `/api/v1/forecasts/?period=${period}&timing=${timing}`, undefined, orgId),
 
   // AI Assistant
   ask: (orgId: string, question: string, session_id?: string) =>
@@ -218,9 +295,9 @@ export const api = {
       'POST', '/api/v1/assistant/', { question, session_id }, orgId
     ),
 
-  // Audit logs
-  auditLogs: (orgId: string) =>
-    request<AuditLog[]>('GET', '/api/v1/audit-logs/', undefined, orgId),
+  // AUDIT LOG DISABLED — uncomment to re-enable
+  // auditLogs: (orgId: string) =>
+  //   request<AuditLog[]>('GET', '/api/v1/audit-logs/', undefined, orgId),
 
   // Notifications
   notifications: (orgId: string) =>

@@ -530,6 +530,9 @@ def register(request):
         Membership.objects.create(
             organization=org, user=user, role=Membership.Role.OWNER
         )
+        # Seed default GST rates for the new organization.
+        from products.gst import create_default_gst_rates
+        create_default_gst_rates(org)
         AuditLog.objects.create(
             organization=org,
             actor=user,

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "subscriptions",
     "platform_admin",
     "exports",
+    "products",
 ]
 
 MIDDLEWARE = [

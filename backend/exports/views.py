@@ -27,22 +27,28 @@ def export_invoices(request):
     writer = csv.writer(response)
     writer.writerow([
         "invoice_number", "customer_name", "invoice_date", "due_date",
-        "status", "subtotal", "discount", "tax", "total", "paid", "outstanding", "currency",
+        "status", "subtotal", "discount", "tax", "total",
+        "cgst", "sgst", "igst", "paid", "outstanding", "currency",
     ])
     invoices = (
         Invoice.objects.filter(organization=org)
         .select_related("customer")
-        .prefetch_related("allocations")
+        .prefetch_related("allocations", "items")
         .order_by("-invoice_date")
     )
     for inv in invoices:
         paid = sum(a.amount_minor for a in inv.allocations.all() if a.reversed_at is None)
         balance = max(0, inv.total_minor - paid)
+        # GST breakdown aggregated from stored line snapshots (read-only).
+        cgst = sum(i.gst_cgst_minor for i in inv.items.all())
+        sgst = sum(i.gst_sgst_minor for i in inv.items.all())
+        igst = sum(i.gst_igst_minor for i in inv.items.all())
         writer.writerow([
             inv.invoice_number, inv.customer.name, inv.invoice_date, inv.due_date,
             inv.status, _money(inv.subtotal_minor), _money(inv.discount_minor),
-            _money(inv.tax_minor), _money(inv.total_minor), _money(paid),
-            _money(balance), inv.currency,
+            _money(inv.tax_minor), _money(inv.total_minor),
+            _money(cgst), _money(sgst), _money(igst),
+            _money(paid), _money(balance), inv.currency,
         ])
     AuditLog.objects.create(
         organization=org, actor=request.user,

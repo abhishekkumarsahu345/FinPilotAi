@@ -774,17 +774,35 @@ def get_invoice_details(org, invoice_number: str) -> dict:
     
     balance = max(0, invoice.total_minor - paid_total)
     
-    # Line items
+    # Line items (GST values are stored snapshots, read-only — never recomputed here)
     items = [
         {
             "description": item.description,
             "quantity": float(item.quantity),
             "unit_price_minor": item.unit_price_minor,
             "discount_minor": item.discount_minor,
-            "line_total_minor": item.line_total_minor
+            "line_total_minor": item.line_total_minor,
+            "hsn_sac": item.hsn_sac,
+            "gst_rate_bps": item.gst_rate_bps,
+            "gst_tax_minor": item.gst_tax_minor,
+            "gst_cgst_minor": item.gst_cgst_minor,
+            "gst_sgst_minor": item.gst_sgst_minor,
+            "gst_igst_minor": item.gst_igst_minor,
         }
         for item in invoice.items.all()
     ]
+
+    # GST summary aggregated from stored line snapshots (sums only — no calc).
+    total_cgst = sum(i.gst_cgst_minor for i in invoice.items.all())
+    total_sgst = sum(i.gst_sgst_minor for i in invoice.items.all())
+    total_igst = sum(i.gst_igst_minor for i in invoice.items.all())
+    gst_summary = {
+        "has_gst": invoice.tax_minor > 0 or any(i.gst_tax_minor > 0 for i in invoice.items.all()),
+        "total_cgst_minor": total_cgst,
+        "total_sgst_minor": total_sgst,
+        "total_igst_minor": total_igst,
+        "total_tax_minor": invoice.tax_minor,
+    }
     
     return {
         "id": str(invoice.id),
@@ -802,6 +820,7 @@ def get_invoice_details(org, invoice_number: str) -> dict:
         "paid_minor": paid_total,
         "balance_minor": balance,
         "items": items,
+        "gst_summary": gst_summary,
         "payments": payments,
         "notes": invoice.notes[:200] if invoice.notes else ""
     }

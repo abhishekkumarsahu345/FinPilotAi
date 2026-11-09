@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from products.gst import STATE_CODE_CHOICES
+
 
 # ---------------------------------------------------------------------------
 # Organization
@@ -21,6 +23,8 @@ class Organization(models.Model):
     business_email = models.EmailField(blank=True)
     contact_phone = models.CharField(max_length=32, blank=True)
     country = models.CharField(max_length=2, default="IN")
+    # GST place-of-supply state (Indian state code, e.g. "07" = Delhi).
+    state = models.CharField(max_length=2, choices=STATE_CODE_CHOICES, blank=True, default="")
     default_currency = models.CharField(max_length=3, default="INR")
     timezone = models.CharField(max_length=64, default="Asia/Kolkata")
     billing_address = models.TextField(blank=True)
@@ -86,6 +90,8 @@ class Customer(models.Model):
     phone = models.CharField(max_length=32, blank=True)
     billing_address = models.TextField(blank=True)
     gstin = models.CharField(max_length=15, blank=True)
+    # GST place-of-supply state (Indian state code). Drives CGST+SGST vs IGST.
+    state = models.CharField(max_length=2, choices=STATE_CODE_CHOICES, blank=True, default="")
     payment_terms_days = models.PositiveSmallIntegerField(default=30)
     notes = models.TextField(blank=True)
     active = models.BooleanField(default=True)
@@ -210,12 +216,33 @@ class InvoiceItem(models.Model):
     invoice = models.ForeignKey(
         Invoice, on_delete=models.CASCADE, related_name="items"
     )
+    # Optional link to the Product this line was built from. The product can be
+    # edited/deactivated later without affecting this line, because the GST
+    # rate and price are snapshotted below.
+    product = models.ForeignKey(
+        "products.Product", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="invoice_items",
+    )
     description = models.CharField(max_length=500)
     quantity = models.DecimalField(max_digits=14, decimal_places=4, default=1)
     unit_price_minor = models.BigIntegerField()
     discount_minor = models.BigIntegerField(default=0)
     # line_total_minor = (quantity * unit_price_minor) - discount_minor, server-calculated
     line_total_minor = models.BigIntegerField()
+
+    # ── GST snapshot (immutable once written) ────────────────────────────
+    # Snapshot of the applied GST rate in basis points (1800 = 18%). 0 = No GST.
+    # Stored as a snapshot so later edits to a GSTRate never change old invoices.
+    gst_rate_bps = models.IntegerField(default=0)
+    gst_rate_name = models.CharField(max_length=64, blank=True, default="")
+    hsn_sac = models.CharField(max_length=16, blank=True, default="")
+    # Total GST for this line (server-computed), plus the CGST/SGST/IGST split
+    # determined by place of supply at invoice time.
+    gst_tax_minor = models.BigIntegerField(default=0)
+    gst_cgst_minor = models.BigIntegerField(default=0)
+    gst_sgst_minor = models.BigIntegerField(default=0)
+    gst_igst_minor = models.BigIntegerField(default=0)
+
     sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
@@ -228,6 +255,21 @@ class InvoiceItem(models.Model):
             models.CheckConstraint(
                 condition=models.Q(line_total_minor__gt=0),
                 name="item_line_total_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gst_rate_bps__gte=0), name="item_gst_rate_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gst_tax_minor__gte=0), name="item_gst_tax_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gst_cgst_minor__gte=0), name="item_gst_cgst_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gst_sgst_minor__gte=0), name="item_gst_sgst_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gst_igst_minor__gte=0), name="item_gst_igst_nonnegative"
             ),
         ]
 

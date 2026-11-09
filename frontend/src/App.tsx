@@ -2,21 +2,30 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, CircleHelp, Clock3,
   FileSpreadsheet, FileText, LayoutDashboard, LogOut, Plus, Search,
-  Settings2, ShieldCheck, Users, Wallet, X, Bot, GitMerge,
+  Settings2, ShieldCheck, Users, Wallet, X, Bot, /*GitMerge,*/
   TrendingUp, Download, CheckCircle, AlertCircle, RefreshCw,
+  Package, Pencil, Power, Percent, Tag,
 } from 'lucide-react'
 import {
   api, ApiError, money, fmtDate,
   setUnauthenticatedHandler, broadcastLogout, subscribeLogoutChannel,
   type User, type Org, type Invoice, type Customer,
-  type Payment, type DashboardData, type AgingData, type ForecastData, type Notification,
+  type Payment, type DashboardData, type AgingData, /*type ForecastData,*/ type Notification,
+  type Product, type GSTRate, type OrganizationDetail,
 } from './lib/api'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Page = 'Overview' | 'Invoices' | 'Customers' | 'Payments' | 'Aging report' |
-  'Reminders' | 'Reconciliation' | 'Forecast' | 'AI Assistant' |
-  'Audit Log' | 'Settings' | 'Notifications'
+  'Reminders' | /*'Reconciliation' |*/ /*'Forecast' |*/ 'AI Assistant' |
+  /*'Audit Log' |*/ 'Settings' | 'Notifications' | 'Products'
+
+// ── GST preview helper (display-only; the server recalculates on save) ──────
+// Mirrors the backend: round-half-up to the nearest paise.
+function gstAmount(taxableMinor: number, rateBps: number): number {
+  if (!rateBps || rateBps <= 0 || taxableMinor <= 0) return 0
+  return Math.round((taxableMinor * rateBps) / 10000)
+}
 
 // ── Auth screen ────────────────────────────────────────────────────────────
 
@@ -27,7 +36,6 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
 
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setBusy(true); setError('')
     const fd = new FormData(e.currentTarget)
     try {
       await api.csrf()
@@ -133,54 +141,240 @@ function Metric({ icon, title, value, note, tone }: { icon: React.ReactNode; tit
 // ── Status badge ───────────────────────────────────────────────────────────
 
 function StatusBadge({ s }: { s: string }) {
-  return <span className={`status ${s}`}>{s.replace(/_/g, ' ')}</span>
+  const labels: Record<string, string> = {
+    issued: 'Unpaid',
+    partially_paid: 'Partially Paid',
+    paid: 'Paid',
+    overdue: 'Overdue',
+    draft: 'Draft',
+    void: 'Void',
+  }
+  return <span className={`status ${s}`}>{labels[s] ?? s.replace(/_/g, ' ')}</span>
 }
 
-// ── Invoice modal ──────────────────────────────────────────────────────────
+// ── Invoice modal (line items + GST) ────────────────────────────────────────
 
-function InvoiceModal({ customers, orgId, onClose, onCreated }: {
-  customers: Customer[]; orgId: string; onClose: () => void; onCreated: () => void
+type InvoiceLine = {
+  product: string; description: string; quantity: string
+  unit_price_minor: string; discount_minor: string
+  gst_rate_bps: number; gst_rate_name: string; hsn_sac: string
+}
+
+function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose, onCreated, editing }: {
+  customers: Customer[]; products: Product[]; gstRates: GSTRate[]
+  orgDetail: OrganizationDetail | null; orgId: string
+  onClose: () => void; onCreated: () => void; editing: Invoice | null
 }) {
+  const isEdit = !!editing
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const handle = async (e: React.FormEvent<HTMLFormElement>) => {
+  const [customer, setCustomer] = useState(editing?.customer || '')
+  const [number, setNumber] = useState(editing?.invoice_number || '')
+  const [invDate, setInvDate] = useState(editing?.invoice_date || new Date().toISOString().slice(0, 10))
+  const [dueDate, setDueDate] = useState(editing?.due_date || '')
+  const [invDiscount, setInvDiscount] = useState(String(editing?.discount_minor ?? 0))
+  const [lines, setLines] = useState<InvoiceLine[]>(
+    (editing?.items?.length
+      ? editing.items.map(it => ({
+          product: it.product || '', description: it.description, quantity: String(it.quantity),
+          unit_price_minor: String(it.unit_price_minor), discount_minor: String(it.discount_minor),
+          gst_rate_bps: it.gst_rate_bps, gst_rate_name: it.gst_rate_name, hsn_sac: it.hsn_sac,
+        }))
+      : [{
+          product: '', description: '', quantity: '1', unit_price_minor: '0',
+          discount_minor: '0', gst_rate_bps: 0, gst_rate_name: 'No GST', hsn_sac: '',
+        }])
+  )
+
+  const activeRates = gstRates.filter(r => r.active)
+
+  const updateLine = (i: number, patch: Partial<InvoiceLine>) =>
+    setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l))
+
+  const onProduct = (i: number, productId: string) => {
+    if (!productId) { updateLine(i, { product: '' }); return }
+    const p = products.find(x => x.id === productId)
+    if (!p) return
+    updateLine(i, {
+      product: productId, description: p.name,
+      unit_price_minor: String(p.price_minor), hsn_sac: p.hsn_sac,
+      gst_rate_bps: p.default_gst_rate_bps || 0,
+      gst_rate_name: p.default_gst_rate_bps ? (p.default_gst_rate_name || '') : 'No GST',
+    })
+  }
+
+  const onGst = (i: number, rateId: string) => {
+    if (!rateId) { updateLine(i, { gst_rate_bps: 0, gst_rate_name: 'No GST' }); return }
+    const r = activeRates.find(x => x.id === rateId)
+    if (r) updateLine(i, { gst_rate_bps: r.rate_bps, gst_rate_name: r.name })
+  }
+
+  const lineTotal = (l: InvoiceLine) => {
+    const qty = parseFloat(l.quantity) || 0
+    const unit = parseInt(l.unit_price_minor) || 0
+    const disc = parseInt(l.discount_minor) || 0
+    return Math.floor(qty * unit) - disc
+  }
+
+  const subtotal = lines.reduce((a, l) => a + Math.max(0, lineTotal(l)), 0)
+  const tax = lines.reduce((a, l) => a + gstAmount(Math.max(0, lineTotal(l)), l.gst_rate_bps), 0)
+  const invDisc = parseInt(invDiscount) || 0
+  const total = subtotal - invDisc + tax
+
+  // Place-of-supply preview
+  const cust = customers.find(c => c.id === customer)
+  const orgState = orgDetail?.state || ''
+  const custState = cust?.state || ''
+  const posWarning = (!orgState || !custState)
+    ? 'Organization or customer state is missing; defaulting to intra-state (CGST + SGST).'
+    : ''
+  const isIntra = !posWarning ? orgState === custState : true
+
+  const rateGroups: Record<number, { taxable: number; tax: number }> = {}
+  lines.forEach(l => {
+    const lt = Math.max(0, lineTotal(l))
+    const t = gstAmount(lt, l.gst_rate_bps)
+    const k = l.gst_rate_bps
+    if (!rateGroups[k]) rateGroups[k] = { taxable: 0, tax: 0 }
+    rateGroups[k].taxable += lt
+    rateGroups[k].tax += t
+  })
+  const hasGst = tax > 0
+
+  const handle = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setErr('')
-    const fd = new FormData(e.currentTarget)
-    const amount = parseFloat(fd.get('amount') as string)
+    if (!customer) { setErr('Choose a customer.'); setBusy(false); return }
+    if (lines.length === 0) { setErr('Add at least one line.'); setBusy(false); return }
+    for (const l of lines) {
+      if ((parseFloat(l.quantity) || 0) <= 0 || (parseInt(l.unit_price_minor) || 0) <= 0) {
+        setErr('Each line needs a positive quantity and unit price.'); setBusy(false); return
+      }
+    }
+    const payload: Record<string, unknown> = {
+      customer, invoice_number: number, invoice_date: invDate, due_date: dueDate,
+      currency: 'INR', discount_minor: invDisc, status: editing?.status || 'issued',
+      items: lines.map(l => {
+        const item: Record<string, unknown> = {
+          description: l.description || 'Item', quantity: parseFloat(l.quantity),
+          unit_price_minor: parseInt(l.unit_price_minor),
+          discount_minor: parseInt(l.discount_minor) || 0,
+          gst_rate_bps: l.gst_rate_bps, gst_rate_name: l.gst_rate_name, hsn_sac: l.hsn_sac,
+        }
+        if (l.product) item.product = l.product
+        return item
+      }),
+    }
     try {
-      await api.createInvoice(orgId, {
-        customer: fd.get('customer'),
-        invoice_number: fd.get('number'),
-        invoice_date: fd.get('date'),
-        due_date: fd.get('due'),
-        currency: 'INR',
-        subtotal_minor: Math.round(amount * 100),
-        discount_minor: 0,
-        tax_minor: 0,
-        status: 'issued',
-      })
+      if (isEdit && editing) await api.updateInvoice(orgId, editing.id, payload)
+      else await api.createInvoice(orgId, payload)
       onCreated(); onClose()
     } catch (e: unknown) { setErr((e as Error).message) } finally { setBusy(false) }
   }
+
   return (
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <section className="modal">
+      <section className="modal" style={{ width: 'min(760px, 100%)' }}>
         <div className="modal-head">
-          <div><div className="eyebrow">WORKSPACE</div><h2>Create an invoice</h2></div>
+          <div><div className="eyebrow">WORKSPACE</div><h2>{isEdit ? 'Edit invoice' : 'Create an invoice'}</h2></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <form onSubmit={handle}>
-          <label>Customer<select name="customer" required><option value="">Choose a customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-          <label>Invoice number<input name="number" placeholder="INV-2026-001" required /></label>
           <div className="form-row">
-            <label>Invoice date<input name="date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} /></label>
-            <label>Due date<input name="due" type="date" required /></label>
+            <label>Customer
+              <select value={customer} onChange={e => setCustomer(e.target.value)} required>
+                <option value="">Choose a customer</option>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label>Invoice number<input value={number} onChange={e => setNumber(e.target.value)} placeholder="INV-2026-001" required /></label>
           </div>
-          <label>Total amount (₹)<input name="amount" type="number" min="1" step="0.01" placeholder="0.00" required /></label>
+          <div className="form-row">
+            <label>Invoice date<input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} required /></label>
+            <label>Due date<input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required /></label>
+          </div>
+
+          {/* Line items */}
+          <div className="line-items">
+            {lines.map((l, i) => {
+              const lt = Math.max(0, lineTotal(l))
+              const gst = gstAmount(lt, l.gst_rate_bps)
+              return (
+                <div className="line-card" key={i}>
+                  <div className="line-card-top">
+                    <strong>Line {i + 1}</strong>
+                    {lines.length > 1 && (
+                      <button type="button" className="link-btn" onClick={() => setLines(ls => ls.filter((_, idx) => idx !== i))}>
+                        <X size={13} /> Remove
+                      </button>
+                    )}
+                  </div>
+                  <label>Product (optional)
+                    <select value={l.product} onChange={e => onProduct(i, e.target.value)}>
+                      <option value="">Manual line</option>
+                      {products.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name} — {money(p.price_minor)}</option>)}
+                    </select>
+                  </label>
+                  <label>Description<input value={l.description} onChange={e => updateLine(i, { description: e.target.value })} placeholder="Description" required /></label>
+                  <div className="form-row">
+                    <label>Qty<input type="number" min="0.0001" step="0.0001" value={l.quantity} onChange={e => updateLine(i, { quantity: e.target.value })} required /></label>
+                    <label>Unit price (₹)<input type="number" min="0.01" step="0.01" value={(parseInt(l.unit_price_minor) / 100).toFixed(2)} onChange={e => updateLine(i, { unit_price_minor: String(Math.round(parseFloat(e.target.value || '0') * 100)) })} required /></label>
+                  </div>
+                  <div className="form-row">
+                    <label>Line discount (₹)<input type="number" min="0" step="0.01" value={(parseInt(l.discount_minor) / 100).toFixed(2)} onChange={e => updateLine(i, { discount_minor: String(Math.round(parseFloat(e.target.value || '0') * 100)) })} /></label>
+                    <label>GST rate
+                      <select value={l.gst_rate_bps ? activeRates.find(r => r.rate_bps === l.gst_rate_bps)?.id || '' : ''} onChange={e => onGst(i, e.target.value)}>
+                        <option value="">No GST</option>
+                        {activeRates.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rate_percent})</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <label>HSN/SAC (optional)<input value={l.hsn_sac} onChange={e => updateLine(i, { hsn_sac: e.target.value })} placeholder="e.g. 998313" /></label>
+                  <div className="line-totals">
+                    <span>Taxable: <b>{money(lt)}</b></span>
+                    <span>GST: <b>{money(gst)}</b></span>
+                    <span>Line total: <b>{money(lt + gst)}</b></span>
+                  </div>
+                </div>
+              )
+            })}
+            <button type="button" className="secondary" onClick={() => setLines(ls => [...ls, { product: '', description: '', quantity: '1', unit_price_minor: '0', discount_minor: '0', gst_rate_bps: 0, gst_rate_name: 'No GST', hsn_sac: '' }])}>
+              <Plus size={14} /> Add line
+            </button>
+          </div>
+
+          <label>Invoice discount (₹)<input type="number" min="0" step="0.01" value={(invDisc / 100).toFixed(2)} onChange={e => setInvDiscount(String(Math.round(parseFloat(e.target.value || '0') * 100)))} /></label>
+
+          {/* GST summary preview */}
+          {hasGst ? (
+            <div className="gst-preview">
+              <div className="gst-preview-head"><Percent size={14} /> GST summary (preview — recalculated on save)</div>
+              {Object.entries(rateGroups).filter(([, v]) => v.tax > 0).map(([bps, v]) => (
+                <div className="gst-row" key={bps}>
+                  <span>{Number(bps) / 100}%</span>
+                  <span>Taxable {money(v.taxable)}</span>
+                  {isIntra
+                    ? <span>CGST {money(Math.floor(v.tax / 2))} + SGST {money(v.tax - Math.floor(v.tax / 2))}</span>
+                    : <span>IGST {money(v.tax)}</span>}
+                </div>
+              ))}
+              {posWarning && <div className="form-error" style={{ marginTop: 6 }}>{posWarning}</div>}
+            </div>
+          ) : (
+            <div className="gst-preview"><div className="gst-preview-head">No GST on this invoice — totals behave as before.</div></div>
+          )}
+
+          {/* Totals */}
+          <div className="inv-totals">
+            <span>Subtotal <b>{money(subtotal)}</b></span>
+            <span>Tax <b>{money(tax)}</b></span>
+            <span>Discount <b>-{money(invDisc)}</b></span>
+            <span className="grand">Grand total <b>{money(total)}</b></span>
+          </div>
+
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Creating…' : 'Create invoice'}</button>
+            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Saving…' : isEdit ? 'Save invoice' : 'Create invoice'}</button>
           </div>
         </form>
       </section>
@@ -303,13 +497,238 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
   )
 }
 
+// ── GST rate modal (with live preview) ─────────────────────────────────────
+
+function GstRateModal({ orgId, onClose, onCreated, editing }: {
+  orgId: string; onClose: () => void; onCreated: () => void; editing: GSTRate | null
+}) {
+  const [name, setName] = useState(editing?.name || '')
+  const [percent, setPercent] = useState(editing ? String(editing.rate_bps / 100) : '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const pct = parseFloat(percent) || 0
+  const half = pct / 2
+  const preview = pct > 0 ? `CGST ${half}% + SGST ${half}% | IGST ${pct}%` : 'No GST'
+
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true); setErr('')
+    if (!name.trim()) { setErr('Name is required.'); setBusy(false); return }
+    const rate_bps = Math.round(pct * 100)
+    if (rate_bps < 0) { setErr('Rate cannot be negative.'); setBusy(false); return }
+    try {
+      if (editing) await api.updateGstRate(orgId, editing.id, { name: name.trim(), rate_bps })
+      else await api.createGstRate(orgId, { name: name.trim(), rate_bps })
+      onCreated(); onClose()
+    } catch (e: unknown) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <section className="modal" style={{ width: 'min(460px, 100%)' }}>
+        <div className="modal-head">
+          <div><div className="eyebrow">GST RATES</div><h2>{editing ? 'Edit GST rate' : 'New GST rate'}</h2></div>
+          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <form onSubmit={handle}>
+          <label>Name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. 18% GST" required /></label>
+          <label>Total rate (%)<input type="number" min="0" step="0.25" value={percent} onChange={e => setPercent(e.target.value)} placeholder="e.g. 18" required /></label>
+          <div className="gst-preview"><div className="gst-preview-head"><Percent size={14} /> Live preview</div>
+            <div className="gst-row" style={{ border: 0, padding: 0 }}><b>{preview}</b></div>
+          </div>
+          <p style={{ fontSize: 11, color: '#87928b', margin: 0 }}>CGST and SGST are always equal halves. IGST is the full rate.</p>
+          {err && <div className="form-error">{err}</div>}
+          <div className="modal-foot">
+            <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+            <button className="primary" disabled={busy}>{editing ? 'Save' : 'Create rate'}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+// ── Product modal ──────────────────────────────────────────────────────────
+
+function ProductModal({ orgId, gstRates, onClose, onCreated, editing }: {
+  orgId: string; gstRates: GSTRate[]; onClose: () => void; onCreated: () => void; editing: Product | null
+}) {
+  const [name, setName] = useState(editing?.name || '')
+  const [price, setPrice] = useState(editing ? String(editing.price_minor / 100) : '')
+  const [unit, setUnit] = useState(editing?.unit || 'Nos')
+  const [sku, setSku] = useState(editing?.sku || '')
+  const [hsn, setHsn] = useState(editing?.hsn_sac || '')
+  const [desc, setDesc] = useState(editing?.description || '')
+  const [gstRateId, setGstRateId] = useState(editing?.default_gst_rate || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true); setErr('')
+    if (!name.trim()) { setErr('Name is required.'); setBusy(false); return }
+    const price_minor = Math.round((parseFloat(price) || 0) * 100)
+    if (price_minor <= 0) { setErr('Price must be positive.'); setBusy(false); return }
+    try {
+      const data: Partial<Product> = {
+        name: name.trim(), price_minor, unit, sku: sku.trim(), hsn_sac: hsn.trim(),
+        description: desc, default_gst_rate: gstRateId || null,
+      }
+      if (editing) await api.updateProduct(orgId, editing.id, data)
+      else await api.createProduct(orgId, data)
+      onCreated(); onClose()
+    } catch (e: unknown) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+
+  const activeRates = gstRates.filter(r => r.active)
+
+  return (
+    <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <section className="modal" style={{ width: 'min(520px, 100%)' }}>
+        <div className="modal-head">
+          <div><div className="eyebrow">PRODUCTS</div><h2>{editing ? 'Edit product' : 'Add a product'}</h2></div>
+          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+        </div>
+        <form onSubmit={handle}>
+          <label>Product name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Accounting software license" required /></label>
+          <div className="form-row">
+            <label>Price (₹)<input type="number" min="0.01" step="0.01" value={price} onChange={e => setPrice(e.target.value)} placeholder="0.00" required /></label>
+            <label>Unit<input value={unit} onChange={e => setUnit(e.target.value)} placeholder="Nos" /></label>
+          </div>
+          <div className="form-row">
+            <label>SKU (optional)<input value={sku} onChange={e => setSku(e.target.value)} placeholder="Optional" /></label>
+            <label>HSN/SAC (optional)<input value={hsn} onChange={e => setHsn(e.target.value)} placeholder="e.g. 998313" /></label>
+          </div>
+          <label>Default GST rate (optional)
+            <select value={gstRateId} onChange={e => setGstRateId(e.target.value)}>
+              <option value="">No GST</option>
+              {activeRates.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rate_percent})</option>)}
+            </select>
+          </label>
+          <label>Description (optional)<textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} style={{ border: '1px solid #e3e8e5', borderRadius: 7, padding: '8px 10px', outline: 0, resize: 'vertical', fontFamily: 'inherit' }} /></label>
+          {err && <div className="form-error">{err}</div>}
+          <div className="modal-foot">
+            <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+            <button className="primary" disabled={busy}>{editing ? 'Save' : 'Add product'}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+// ── Products page (tabs: Products / GST Rates) ──────────────────────────────
+
+function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal, onOpenRateModal }: {
+  orgId: string; products: Product[]; gstRates: GSTRate[]; onReload: () => void
+  onOpenProductModal: (p: Product | null) => void; onOpenRateModal: (r: GSTRate | null) => void
+}) {
+  const [tab, setTab] = useState<'products' | 'rates'>('products')
+  const [query, setQuery] = useState('')
+  const [busyId, setBusyId] = useState('')
+
+  const toggleProduct = async (p: Product) => {
+    setBusyId(p.id)
+    try {
+      if (p.active) await api.deactivateProduct(orgId, p.id)
+      else await api.activateProduct(orgId, p.id)
+      onReload()
+    } catch { /* ignore */ } finally { setBusyId('') }
+  }
+  const toggleRate = async (r: GSTRate) => {
+    setBusyId(r.id)
+    try {
+      if (r.active) await api.deactivateGstRate(orgId, r.id)
+      else await api.activateGstRate(orgId, r.id)
+      onReload()
+    } catch { /* ignore */ } finally { setBusyId('') }
+  }
+
+  const filteredProducts = products.filter(p =>
+    `${p.name} ${p.sku} ${p.hsn_sac}`.toLowerCase().includes(query.toLowerCase())
+  )
+
+  return (
+    <div className="panel">
+      <div className="panel-head" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div><h2>Products & GST</h2><p>Manage your catalogue and tax rates</p></div>
+          {tab === 'products'
+            ? <button className="primary" onClick={() => onOpenProductModal(null)}><Plus size={16} /> Add product</button>
+            : <button className="primary" onClick={() => onOpenRateModal(null)}><Plus size={16} /> Add GST rate</button>}
+        </div>
+        <div className="tabs">
+          <button className={`tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><Package size={14} /> Products</button>
+          <button className={`tab ${tab === 'rates' ? 'active' : ''}`} onClick={() => setTab('rates')}><Percent size={14} /> GST Rates</button>
+        </div>
+      </div>
+
+      {tab === 'products' && (
+        <div className="table-wrap">
+          <div style={{ padding: '12px 20px' }}>
+            <div className="search"><Search size={15} /><input placeholder="Search products…" value={query} onChange={e => setQuery(e.target.value)} /></div>
+          </div>
+          <table>
+            <thead><tr><th>PRODUCT</th><th>SKU</th><th>HSN/SAC</th><th>PRICE</th><th>DEFAULT GST</th><th>STATUS</th><th></th></tr></thead>
+            <tbody>
+              {filteredProducts.map(p => (
+                <tr key={p.id}>
+                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} · {p.description?.slice(0, 40)}</div></td>
+                  <td>{p.sku || '—'}</td>
+                  <td>{p.hsn_sac || '—'}</td>
+                  <td className="amount">{money(p.price_minor)}</td>
+                  <td>{p.default_gst_rate_bps ? `${p.default_gst_rate_name} (${p.default_gst_rate_bps / 100}%)` : 'No GST'}</td>
+                  <td>{p.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button className="icon-btn" title="Edit" onClick={() => onOpenProductModal(p)}><Pencil size={14} /></button>
+                    <button className="icon-btn" title={p.active ? 'Deactivate' : 'Activate'} disabled={busyId === p.id} onClick={() => toggleProduct(p)}><Power size={14} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredProducts.length === 0 && <div className="empty">{query ? 'No products match your search.' : 'No products yet. Add your first product to get started.'}</div>}
+        </div>
+      )}
+
+      {tab === 'rates' && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>RATE</th><th>TOTAL</th><th>PREVIEW</th><th>USED ON INVOICES</th><th>STATUS</th><th></th></tr></thead>
+            <tbody>
+              {gstRates.map(r => (
+                <tr key={r.id}>
+                  <td className="strong">{r.name}</td>
+                  <td className="amount">{r.rate_percent}</td>
+                  <td style={{ fontSize: 10 }}>{r.preview}</td>
+                  <td>{r.in_use ? <span className="status issued">Yes</span> : '—'}</td>
+                  <td>{r.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button className="icon-btn" title="Edit" onClick={() => onOpenRateModal(r)}><Pencil size={14} /></button>
+                    <button className="icon-btn" title={r.active ? 'Deactivate' : 'Activate'} disabled={busyId === r.id} onClick={() => toggleRate(r)}><Power size={14} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {gstRates.length === 0 && <div className="empty">No GST rates yet. Add your first rate.</div>}
+          {gstRates.some(r => r.in_use && !r.active) && (
+            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices — they are preserved as snapshots.</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main App ───────────────────────────────────────────────────────────────
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [org, setOrg] = useState<Org | null>(null)
   const [page, setPage] = useState<Page>('Overview')
-  const [modal, setModal] = useState<'' | 'invoice' | 'customer' | 'payment'>('')
+  const [modal, setModal] = useState<'' | 'invoice' | 'customer' | 'payment' | 'product' | 'gstrate' | 'edit-invoice'>('')
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [editingRate, setEditingRate] = useState<GSTRate | null>(null)
   const [notice, setNotice] = useState('')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -325,7 +744,11 @@ export default function App() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [aging, setAging] = useState<AgingData | null>(null)
-  const [forecast, setForecast] = useState<ForecastData | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [gstRates, setGstRates] = useState<GSTRate[]>([])
+  const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
+  // FORECAST DISABLED — uncomment to re-enable
+  // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -342,18 +765,24 @@ export default function App() {
 
   const loadData = useCallback(async (activeOrg: Org) => {
     try {
-      const [d, inv, cust, p, a] = await Promise.all([
+      const [d, inv, cust, p, a, pr, gr] = await Promise.all([
         api.dashboard(activeOrg.id),
         api.invoices(activeOrg.id),
         api.customers(activeOrg.id),
         api.payments(activeOrg.id),
         api.aging(activeOrg.id),
+        api.products(activeOrg.id),
+        api.gstRates(activeOrg.id),
       ])
       setDashboard(d)
       setInvoices(inv.results || [])
       setCustomers(cust.results || [])
       setPayments(p.results || [])
       setAging(a)
+      setProducts(pr.results || [])
+      setGstRates(gr.results || [])
+      // Fetch org detail (state) for GST place-of-supply display.
+      api.organization(activeOrg.id).then(setOrgDetail).catch(() => {})
     } catch {
       setNotice('Unable to reach the API. Start the backend and refresh.')
     }
@@ -393,7 +822,8 @@ export default function App() {
     setCustomers([])
     setPayments([])
     setAging(null)
-    setForecast(null)
+    // FORECAST DISABLED — uncomment to re-enable
+    // setForecast(null)
     setNotifications([])
     setUnreadCount(0)
     setLogoutConfirm(false)
@@ -476,27 +906,31 @@ export default function App() {
     { name: 'Overview', icon: LayoutDashboard },
     { name: 'Invoices', icon: FileText },
     { name: 'Customers', icon: Users },
+    { name: 'Products', icon: Package },
     { name: 'Payments', icon: Wallet },
     { name: 'Aging report', icon: Clock3 },
     { name: 'Reminders', icon: Bell, soon: true },
-    { name: 'Reconciliation', icon: GitMerge, soon: true },
-    { name: 'Forecast', icon: TrendingUp },
+    // RECONCILIATION DISABLED — uncomment to re-enable
+    // { name: 'Reconciliation', icon: GitMerge, soon: true },
+    // FORECAST DISABLED — uncomment to re-enable
+    // { name: 'Forecast', icon: TrendingUp },
     { name: 'AI Assistant', icon: Bot },
   ]
 
   const invoiceTable = (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>INVOICE</th><th>CUSTOMER</th><th>ISSUED</th><th>DUE DATE</th><th>AMOUNT DUE</th><th>STATUS</th></tr></thead>
+        <thead><tr><th>CUSTOMER</th><th>INVOICE</th><th>TOTAL</th><th>PAID</th><th>DUE</th><th>STATUS</th><th></th></tr></thead>
         <tbody>
           {filtered.map(i => (
             <tr key={i.id}>
-              <td className="strong">{i.invoice_number}</td>
-              <td>{i.customer_name}</td>
-              <td>{fmtDate(i.invoice_date)}</td>
-              <td>{fmtDate(i.due_date)}</td>
+              <td className="strong">{i.customer_name}</td>
+              <td>{i.invoice_number}</td>
+              <td className="amount">{money(i.total_minor)}</td>
+              <td className="amount">{money(i.paid_minor)}</td>
               <td className="amount">{money(i.balance_minor)}</td>
               <td><StatusBadge s={i.display_status} /></td>
+              <td><button className="icon-btn" title="Edit" onClick={() => { setEditingInvoice(i); setModal('edit-invoice') }}><Pencil size={14} /></button></td>
             </tr>
           ))}
         </tbody>
@@ -529,7 +963,8 @@ export default function App() {
             <Bell size={17} />Notifications
             {unreadCount > 0 && <span className="soon">{unreadCount}</span>}
           </button>
-          <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button>
+          {/* AUDIT LOG DISABLED — uncomment to re-enable */}
+          {/* <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button> */}
           <button className="nav-item" onClick={() => setPage('Settings')}><Settings2 size={17} />Settings</button>
           <div className="profile">
             <div className="avatar">{user.full_name?.slice(0, 1) || user.email.slice(0, 1)}</div>
@@ -578,10 +1013,12 @@ export default function App() {
               <h1>{page === 'Overview' ? `Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, ${user.full_name?.split(' ')[0] || 'there'}` : page}</h1>
               <p>{page === 'Overview' ? "Here's your receivables position today." : `Your ${page.toLowerCase()} at a glance.`}</p>
             </div>
-            <div className="heading-actions">
-              <button className="secondary" onClick={() => setModal('customer')}><Plus size={16} /> Customer</button>
-              <button className="primary" onClick={() => setModal('invoice')}><Plus size={16} /> New invoice</button>
-            </div>
+            {page === 'Overview' && (
+              <div className="heading-actions">
+                <button className="secondary" onClick={() => setModal('customer')}><Plus size={16} /> Customer</button>
+                <button className="primary" onClick={() => setModal('invoice')}><Plus size={16} /> New invoice</button>
+              </div>
+            )}
           </div>
 
           {notice && <div className="notice" onClick={() => setNotice('')}>{notice}<X size={15} /></div>}
@@ -749,10 +1186,10 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Forecast ── */}
-          {page === 'Forecast' && (
+          {/* ── Forecast ── DISABLED — uncomment to re-enable */}
+          {/* {page === 'Forecast' && (
             <ForecastPage orgId={org.id} />
-          )}
+          )} */}
 
           {/* ── AI Assistant ── */}
           {page === 'AI Assistant' && (
@@ -842,8 +1279,8 @@ export default function App() {
             </div>
           )}
 
-          {/* ── Audit log ── */}
-          {page === 'Audit Log' && <AuditLogPage orgId={org.id} />}
+          {/* ── Audit log ── DISABLED — uncomment to re-enable */}
+          {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id} />} */}
 
           {/* ── Settings ── */}
           {page === 'Settings' && (
@@ -860,8 +1297,19 @@ export default function App() {
             </div>
           )}
 
+          {/* ── Products ── */}
+          {page === 'Products' && org && (
+            <ProductsPage
+              orgId={org.id} products={products} gstRates={gstRates}
+              onReload={() => loadData(org)}
+              onOpenProductModal={p => { setEditingProduct(p); setModal('product') }}
+              onOpenRateModal={r => { setEditingRate(r); setModal('gstrate') }}
+            />
+          )}
+
           {/* ── Reminders / Reconciliation (coming soon) ── */}
-          {(page === 'Reminders' || page === 'Reconciliation') && (
+          {/* RECONCILIATION DISABLED — uncomment `|| page === 'Reconciliation'` to re-enable */}
+          {(page === 'Reminders' /* || page === 'Reconciliation' */) && (
             <div className="coming">
               <div className="coming-icon"><Activity size={24} /></div>
               <div className="eyebrow">ON THE ROADMAP</div>
@@ -879,14 +1327,34 @@ export default function App() {
       </main>
 
       {/* Modals */}
-      {modal === 'invoice' && (
-        <InvoiceModal customers={customers} orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
+      {(modal === 'invoice' || modal === 'edit-invoice') && org && (
+        <InvoiceModal
+          customers={customers} products={products} gstRates={gstRates}
+          orgDetail={orgDetail} orgId={org.id}
+          editing={modal === 'edit-invoice' ? editingInvoice : null}
+          onClose={() => { setModal(''); setEditingInvoice(null) }}
+          onCreated={() => loadData(org)}
+        />
       )}
-      {modal === 'customer' && (
+      {modal === 'customer' && org && (
         <CustomerModal orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
       )}
-      {modal === 'payment' && (
+      {modal === 'payment' && org && (
         <PaymentModal customers={customers} invoices={invoices} orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
+      )}
+      {modal === 'product' && org && (
+        <ProductModal
+          orgId={org.id} gstRates={gstRates} editing={editingProduct}
+          onClose={() => { setModal(''); setEditingProduct(null) }}
+          onCreated={() => loadData(org)}
+        />
+      )}
+      {modal === 'gstrate' && org && (
+        <GstRateModal
+          orgId={org.id} editing={editingRate}
+          onClose={() => { setModal(''); setEditingRate(null) }}
+          onCreated={() => loadData(org)}
+        />
       )}
 
       {/* ── Logout confirm dialog ─────────────────────────────────────── */}
@@ -937,8 +1405,8 @@ export default function App() {
   )
 }
 
-// ── Forecast page component ────────────────────────────────────────────────
-
+// ── Forecast page component ── DISABLED — uncomment to re-enable ─────────────
+/*
 function ForecastPage({ orgId }: { orgId: string }) {
   const [period, setPeriod] = useState<7 | 30 | 60>(30)
   const [timing, setTiming] = useState('due_date')
@@ -996,9 +1464,10 @@ function ForecastPage({ orgId }: { orgId: string }) {
     </div>
   )
 }
+*/
 
-// ── Audit log page ─────────────────────────────────────────────────────────
-
+// ── Audit log page ── DISABLED — uncomment to re-enable ─────────────────────
+/*
 function AuditLogPage({ orgId }: { orgId: string }) {
   const [logs, setLogs] = useState<import('./lib/api').AuditLog[]>([])
   useEffect(() => {
@@ -1027,3 +1496,4 @@ function AuditLogPage({ orgId }: { orgId: string }) {
     </div>
   )
 }
+*/
