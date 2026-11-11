@@ -289,9 +289,10 @@ export const api = {
   // forecast: (orgId: string, period: 7 | 30 | 60, timing = 'due_date') =>
   //   request<ForecastData>('GET', `/api/v1/forecasts/?period=${period}&timing=${timing}`, undefined, orgId),
 
-  // AI Assistant
-  ask: (orgId: string, question: string, session_id?: string) =>
-    request<{ answer: string; basis: Record<string, unknown> }>(
+  // AI Assistant 
+  ask: (orgId: string, question: string, session_id?: string) =>  // The part inside < > is TypeScript's generic type.
+  //                                                            //It tells TypeScript what kind of response we expect:
+  request<{ answer: string; basis: Record<string, unknown> }>(
       'POST', '/api/v1/assistant/', { question, session_id }, orgId
     ),
 

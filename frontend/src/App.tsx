@@ -1,3 +1,4 @@
+// FinPilot AI - Invoice Module Improved
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, CircleHelp, Clock3,
@@ -160,6 +161,109 @@ type InvoiceLine = {
   gst_rate_bps: number; gst_rate_name: string; hsn_sac: string
 }
 
+// ── Invoice View Modal (Clean Modern Style - Green Theme) ─────────────────
+function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
+  invoice: Invoice; customers: Customer[]; onClose: () => void; onEdit: () => void
+}) {
+  const cust = customers.find(c => c.id === invoice.customer)
+  const isIntra = invoice.gst_summary.place_of_supply === 'intra_state'
+  
+  return (
+    <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <section className="modal invoice-view-modal-modern">
+        {/* Header with Invoice Number */}
+        <div className="invoice-modern-header">
+          <div className="invoice-modern-header-left">
+            <div className="invoice-modern-brand">FinPilot AI – Customer Invoice</div>
+            <h1 className="invoice-modern-number">{invoice.invoice_number}</h1>
+          </div>
+          <div className="invoice-modern-header-right">
+            <span className={`status ${invoice.display_status}`}>
+              {invoice.display_status === 'issued' ? 'Posted' : 
+               invoice.display_status === 'paid' ? 'Paid' :
+               invoice.display_status === 'overdue' ? 'Overdue' :
+               invoice.display_status === 'draft' ? 'Draft' : 'Issued'}
+            </span>
+            <button className="icon-btn" onClick={onClose}><X size={20} /></button>
+          </div>
+        </div>
+
+        <div className="invoice-modern-body">
+          {/* Top Info Grid */}
+          <div className="invoice-modern-info-grid">
+            <div className="invoice-modern-info-col">
+              <div className="invoice-modern-label">CUSTOMER</div>
+              <div className="invoice-modern-value-large">{cust?.name || '—'}</div>
+              {cust?.billing_address && <div className="invoice-modern-address">{cust.billing_address}</div>}
+            </div>
+            
+            <div className="invoice-modern-info-col">
+              <div className="invoice-modern-label">INVOICE DATE</div>
+              <div className="invoice-modern-value">{fmtDate(invoice.invoice_date)}</div>
+              <div className="invoice-modern-meta">Due date: {fmtDate(invoice.due_date)}</div>
+            </div>
+          </div>
+
+          {/* Invoice Lines Section */}
+          <div className="invoice-modern-section">
+            <h3 className="invoice-modern-section-title">Invoice Lines</h3>
+            
+            <table className="invoice-modern-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th style={{textAlign: 'right'}}>Qty</th>
+                  <th style={{textAlign: 'right'}}>Price</th>
+                  <th style={{textAlign: 'right'}}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.items.map(item => (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="invoice-modern-product">{item.description}</div>
+                      {item.hsn_sac && <div className="invoice-modern-product-meta">HSN/SAC: {item.hsn_sac}</div>}
+                    </td>
+                    <td style={{textAlign: 'right'}}>{item.quantity}</td>
+                    <td style={{textAlign: 'right'}}>{money(item.unit_price_minor)}</td>
+                    <td style={{textAlign: 'right'}} className="invoice-modern-amount">{money(item.line_total_minor + item.gst_tax_minor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals Section */}
+          <div className="invoice-modern-totals">
+            <div className="invoice-modern-total-row">
+              <span>Untaxed Amount</span>
+              <span className="invoice-modern-total-value">{money(invoice.subtotal_minor)}</span>
+            </div>
+            {invoice.gst_summary.has_gst && (
+              <div className="invoice-modern-total-row">
+                <span>GST</span>
+                <span className="invoice-modern-total-value">{money(invoice.tax_minor)}</span>
+              </div>
+            )}
+            <div className="invoice-modern-total-row invoice-modern-grand-total">
+              <span>Total</span>
+              <span className="invoice-modern-total-amount">{money(invoice.total_minor)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer with Actions */}
+        <div className="modal-foot">
+          <button type="button" className="secondary" onClick={onClose}>Close</button>
+          <button type="button" className="primary" onClick={onEdit}>
+            <Pencil size={15} />Edit invoice
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose, onCreated, editing }: {
   customers: Customer[]; products: Product[]; gstRates: GSTRate[]
   orgDetail: OrganizationDetail | null; orgId: string
@@ -230,17 +334,6 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
     : ''
   const isIntra = !posWarning ? orgState === custState : true
 
-  const rateGroups: Record<number, { taxable: number; tax: number }> = {}
-  lines.forEach(l => {
-    const lt = Math.max(0, lineTotal(l))
-    const t = gstAmount(lt, l.gst_rate_bps)
-    const k = l.gst_rate_bps
-    if (!rateGroups[k]) rateGroups[k] = { taxable: 0, tax: 0 }
-    rateGroups[k].taxable += lt
-    rateGroups[k].tax += t
-  })
-  const hasGst = tax > 0
-
   const handle = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setErr('')
     if (!customer) { setErr('Choose a customer.'); setBusy(false); return }
@@ -273,108 +366,191 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
 
   return (
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <section className="modal" style={{ width: 'min(760px, 100%)' }}>
-        <div className="modal-head">
-          <div><div className="eyebrow">WORKSPACE</div><h2>{isEdit ? 'Edit invoice' : 'Create an invoice'}</h2></div>
-          <button className="icon-btn" onClick={onClose}><X size={18} /></button>
+      <section className="modal invoice-form-clean" style={{ width: 'min(1100px, 95%)', maxHeight: '90vh', overflow: 'auto' }}>
+        {/* Header */}
+        <div className="invoice-form-clean-header">
+          <div>
+            <div className="invoice-form-clean-title">Customer Invoice</div>
+            <h2 className="invoice-form-clean-subtitle">{isEdit ? editing.invoice_number : 'Draft'}</h2>
+          </div>
+          <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
+
         <form onSubmit={handle}>
-          <div className="form-row">
-            <label>Customer
-              <select value={customer} onChange={e => setCustomer(e.target.value)} required>
-                <option value="">Choose a customer</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </label>
-            <label>Invoice number<input value={number} onChange={e => setNumber(e.target.value)} placeholder="INV-2026-001" required /></label>
-          </div>
-          <div className="form-row">
-            <label>Invoice date<input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} required /></label>
-            <label>Due date<input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required /></label>
-          </div>
+          <div className="invoice-form-clean-body">
+            {/* Top Info Grid */}
+            <div className="invoice-form-clean-grid">
+              <div className="invoice-form-clean-col">
+                <label className="invoice-form-clean-label">Customer *</label>
+                <select className="invoice-form-clean-input" value={customer} onChange={e => setCustomer(e.target.value)} required>
+                  <option value="">Choose a customer</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
 
-          {/* Line items */}
-          <div className="line-items">
-            {lines.map((l, i) => {
-              const lt = Math.max(0, lineTotal(l))
-              const gst = gstAmount(lt, l.gst_rate_bps)
-              return (
-                <div className="line-card" key={i}>
-                  <div className="line-card-top">
-                    <strong>Line {i + 1}</strong>
-                    {lines.length > 1 && (
-                      <button type="button" className="link-btn" onClick={() => setLines(ls => ls.filter((_, idx) => idx !== i))}>
-                        <X size={13} /> Remove
-                      </button>
-                    )}
-                  </div>
-                  <label>Product (optional)
-                    <select value={l.product} onChange={e => onProduct(i, e.target.value)}>
-                      <option value="">Manual line</option>
-                      {products.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name} — {money(p.price_minor)}</option>)}
-                    </select>
-                  </label>
-                  <label>Description<input value={l.description} onChange={e => updateLine(i, { description: e.target.value })} placeholder="Description" required /></label>
-                  <div className="form-row">
-                    <label>Qty<input type="number" min="0.0001" step="0.0001" value={l.quantity} onChange={e => updateLine(i, { quantity: e.target.value })} required /></label>
-                    <label>Unit price (₹)<input type="number" min="0.01" step="0.01" value={(parseInt(l.unit_price_minor) / 100).toFixed(2)} onChange={e => updateLine(i, { unit_price_minor: String(Math.round(parseFloat(e.target.value || '0') * 100)) })} required /></label>
-                  </div>
-                  <div className="form-row">
-                    <label>Line discount (₹)<input type="number" min="0" step="0.01" value={(parseInt(l.discount_minor) / 100).toFixed(2)} onChange={e => updateLine(i, { discount_minor: String(Math.round(parseFloat(e.target.value || '0') * 100)) })} /></label>
-                    <label>GST rate
-                      <select value={l.gst_rate_bps ? activeRates.find(r => r.rate_bps === l.gst_rate_bps)?.id || '' : ''} onChange={e => onGst(i, e.target.value)}>
-                        <option value="">No GST</option>
-                        {activeRates.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rate_percent})</option>)}
-                      </select>
-                    </label>
-                  </div>
-                  <label>HSN/SAC (optional)<input value={l.hsn_sac} onChange={e => updateLine(i, { hsn_sac: e.target.value })} placeholder="e.g. 998313" /></label>
-                  <div className="line-totals">
-                    <span>Taxable: <b>{money(lt)}</b></span>
-                    <span>GST: <b>{money(gst)}</b></span>
-                    <span>Line total: <b>{money(lt + gst)}</b></span>
-                  </div>
-                </div>
-              )
-            })}
-            <button type="button" className="secondary" onClick={() => setLines(ls => [...ls, { product: '', description: '', quantity: '1', unit_price_minor: '0', discount_minor: '0', gst_rate_bps: 0, gst_rate_name: 'No GST', hsn_sac: '' }])}>
-              <Plus size={14} /> Add line
-            </button>
-          </div>
-
-          <label>Invoice discount (₹)<input type="number" min="0" step="0.01" value={(invDisc / 100).toFixed(2)} onChange={e => setInvDiscount(String(Math.round(parseFloat(e.target.value || '0') * 100)))} /></label>
-
-          {/* GST summary preview */}
-          {hasGst ? (
-            <div className="gst-preview">
-              <div className="gst-preview-head"><Percent size={14} /> GST summary (preview — recalculated on save)</div>
-              {Object.entries(rateGroups).filter(([, v]) => v.tax > 0).map(([bps, v]) => (
-                <div className="gst-row" key={bps}>
-                  <span>{Number(bps) / 100}%</span>
-                  <span>Taxable {money(v.taxable)}</span>
-                  {isIntra
-                    ? <span>CGST {money(Math.floor(v.tax / 2))} + SGST {money(v.tax - Math.floor(v.tax / 2))}</span>
-                    : <span>IGST {money(v.tax)}</span>}
-                </div>
-              ))}
-              {posWarning && <div className="form-error" style={{ marginTop: 6 }}>{posWarning}</div>}
+              <div className="invoice-form-clean-col">
+                <label className="invoice-form-clean-label">Invoice Date *</label>
+                <input className="invoice-form-clean-input" type="date" value={invDate} onChange={e => setInvDate(e.target.value)} required />
+              </div>
             </div>
-          ) : (
-            <div className="gst-preview"><div className="gst-preview-head">No GST on this invoice — totals behave as before.</div></div>
-          )}
 
-          {/* Totals */}
-          <div className="inv-totals">
-            <span>Subtotal <b>{money(subtotal)}</b></span>
-            <span>Tax <b>{money(tax)}</b></span>
-            <span>Discount <b>-{money(invDisc)}</b></span>
-            <span className="grand">Grand total <b>{money(total)}</b></span>
+            <div className="invoice-form-clean-grid">
+              <div className="invoice-form-clean-col">
+                <label className="invoice-form-clean-label">Invoice Number *</label>
+                <input className="invoice-form-clean-input" value={number} onChange={e => setNumber(e.target.value)} placeholder="INV-2026-001" required />
+              </div>
+
+              <div className="invoice-form-clean-col">
+                <label className="invoice-form-clean-label">Due Date *</label>
+                <input className="invoice-form-clean-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required />
+              </div>
+            </div>
+
+            {/* Invoice Lines Table */}
+            <div className="invoice-form-clean-section">
+              <div className="invoice-form-clean-tabs">
+                <button type="button" className="invoice-form-clean-tab active">Invoice Lines</button>
+              </div>
+
+              <div className="invoice-lines-table-wrap">
+                <table className="invoice-lines-table-clean">
+                  <thead>
+                    <tr>
+                      <th style={{width: '25%'}}>Product</th>
+                      <th style={{width: '25%'}}>Description</th>
+                      <th style={{width: '10%'}}>Quantity</th>
+                      <th style={{width: '12%'}}>Price</th>
+                      <th style={{width: '15%'}}>Taxes</th>
+                      <th style={{width: '10%'}}>Subtotal</th>
+                      <th style={{width: '3%'}}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((l, i) => {
+                      const lt = Math.max(0, lineTotal(l))
+                      const gst = gstAmount(lt, l.gst_rate_bps)
+                      return (
+                        <tr key={i}>
+                          <td>
+                            <select 
+                              className="invoice-table-select" 
+                              value={l.product} 
+                              onChange={e => onProduct(i, e.target.value)}
+                            >
+                              <option value="">Select product</option>
+                              {products.filter(p => p.active).map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <input 
+                              className="invoice-table-input" 
+                              value={l.description} 
+                              onChange={e => updateLine(i, { description: e.target.value })} 
+                              placeholder="Description" 
+                              required 
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              className="invoice-table-input" 
+                              type="number" 
+                              min="0.01" 
+                              step="0.01" 
+                              value={l.quantity} 
+                              onChange={e => updateLine(i, { quantity: e.target.value })} 
+                              required 
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              className="invoice-table-input" 
+                              type="number" 
+                              min="0.01" 
+                              step="0.01" 
+                              value={(parseInt(l.unit_price_minor) / 100).toFixed(2)} 
+                              onChange={e => updateLine(i, { unit_price_minor: String(Math.round(parseFloat(e.target.value || '0') * 100)) })} 
+                              required 
+                            />
+                          </td>
+                          <td>
+                            <select 
+                              className="invoice-table-select" 
+                              value={l.gst_rate_bps ? activeRates.find(r => r.rate_bps === l.gst_rate_bps)?.id || '' : ''} 
+                              onChange={e => onGst(i, e.target.value)}
+                            >
+                              <option value="">No Tax</option>
+                              {activeRates.map(r => (
+                                <option key={r.id} value={r.id}>Tax {r.rate_percent}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="invoice-table-subtotal">
+                            {money(lt + gst)}
+                          </td>
+                          <td>
+                            {lines.length > 1 && (
+                              <button 
+                                type="button" 
+                                className="invoice-table-delete" 
+                                onClick={() => setLines(ls => ls.filter((_, idx) => idx !== i))}
+                                title="Remove line"
+                              >
+                                <X size={16} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <button 
+                type="button" 
+                className="invoice-add-line-btn" 
+                onClick={() => setLines(ls => [...ls, { 
+                  product: '', description: '', quantity: '1', unit_price_minor: '0',
+                  discount_minor: '0', gst_rate_bps: 0, gst_rate_name: 'No GST', hsn_sac: '' 
+                }])}
+              >
+                <Plus size={15} /> Add a line
+              </button>
+            </div>
+
+            {/* Totals Summary */}
+            <div className="invoice-form-clean-totals">
+              <div className="invoice-total-line">
+                <span>Untaxed Amount</span>
+                <strong>{money(subtotal)}</strong>
+              </div>
+              <div className="invoice-total-line">
+                <span>Taxes</span>
+                <strong>{money(tax)}</strong>
+              </div>
+              {invDisc > 0 && (
+                <div className="invoice-total-line">
+                  <span>Discount</span>
+                  <strong>-{money(invDisc)}</strong>
+                </div>
+              )}
+              <div className="invoice-total-line invoice-total-grand">
+                <span>Total</span>
+                <strong>{money(total)}</strong>
+              </div>
+            </div>
           </div>
 
-          {err && <div className="form-error">{err}</div>}
-          <div className="modal-foot">
+          {err && <div className="form-error" style={{padding: '0 32px'}}>{err}</div>}
+
+          {/* Footer Actions */}
+          <div className="invoice-form-clean-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Saving…' : isEdit ? 'Save invoice' : 'Create invoice'}</button>
+            <button type="submit" className="primary" disabled={busy}>
+              {busy ? 'Saving…' : isEdit ? 'Save' : 'Create'}
+            </button>
           </div>
         </form>
       </section>
@@ -725,8 +901,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [org, setOrg] = useState<Org | null>(null)
   const [page, setPage] = useState<Page>('Overview')
-  const [modal, setModal] = useState<'' | 'invoice' | 'customer' | 'payment' | 'product' | 'gstrate' | 'edit-invoice'>('')
+  const [modal, setModal] = useState<'' | 'invoice' | 'customer' | 'payment' | 'product' | 'gstrate' | 'edit-invoice' | 'view-invoice'>('')
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [editingRate, setEditingRate] = useState<GSTRate | null>(null)
   const [notice, setNotice] = useState('')
@@ -920,17 +1097,18 @@ export default function App() {
   const invoiceTable = (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>CUSTOMER</th><th>INVOICE</th><th>TOTAL</th><th>PAID</th><th>DUE</th><th>STATUS</th><th></th></tr></thead>
+        <thead><tr><th>CUSTOMER</th><th>INVOICE</th><th>DATE</th><th>DUE</th><th>TOTAL</th><th>BALANCE</th><th>STATUS</th><th></th></tr></thead>
         <tbody>
           {filtered.map(i => (
-            <tr key={i.id}>
+            <tr key={i.id} onClick={() => { setViewingInvoice(i); setModal('view-invoice') }} style={{cursor: 'pointer'}}>
               <td className="strong">{i.customer_name}</td>
-              <td>{i.invoice_number}</td>
+              <td className="invoice-number-cell">{i.invoice_number}</td>
+              <td>{fmtDate(i.invoice_date)}</td>
+              <td>{fmtDate(i.due_date)}</td>
               <td className="amount">{money(i.total_minor)}</td>
-              <td className="amount">{money(i.paid_minor)}</td>
               <td className="amount">{money(i.balance_minor)}</td>
               <td><StatusBadge s={i.display_status} /></td>
-              <td><button className="icon-btn" title="Edit" onClick={() => { setEditingInvoice(i); setModal('edit-invoice') }}><Pencil size={14} /></button></td>
+              <td><button className="icon-btn" title="Edit" onClick={(e) => { e.stopPropagation(); setEditingInvoice(i); setModal('edit-invoice') }}><Pencil size={14} /></button></td>
             </tr>
           ))}
         </tbody>
@@ -1327,6 +1505,14 @@ export default function App() {
       </main>
 
       {/* Modals */}
+      {modal === 'view-invoice' && viewingInvoice && org && (
+        <InvoiceViewModal
+          invoice={viewingInvoice}
+          customers={customers}
+          onClose={() => { setModal(''); setViewingInvoice(null) }}
+          onEdit={() => { setEditingInvoice(viewingInvoice); setModal('edit-invoice'); setViewingInvoice(null) }}
+        />
+      )}
       {(modal === 'invoice' || modal === 'edit-invoice') && org && (
         <InvoiceModal
           customers={customers} products={products} gstRates={gstRates}
