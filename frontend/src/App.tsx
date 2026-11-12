@@ -1,5 +1,6 @@
 // FinPilot AI - Invoice Module Improved
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, CircleHelp, Clock3,
   FileSpreadsheet, FileText, LayoutDashboard, LogOut, Plus, Search,
@@ -28,24 +29,123 @@ function gstAmount(taxableMinor: number, rateBps: number): number {
   return Math.round((taxableMinor * rateBps) / 10000)
 }
 
+// ── Marble chute SVG artwork (right panel decoration) ─────────────────────
+
+function MarbleArtwork() {
+  return (
+    <svg viewBox="0 0 700 860" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ width: '100%', height: '100%', display: 'block' }}>
+      <defs>
+        <linearGradient id="wallOuter" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#b4cbb8" />
+          <stop offset="55%" stopColor="#9eb6a1" />
+          <stop offset="100%" stopColor="#839c86" />
+        </linearGradient>
+        <linearGradient id="wallFace" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#c8dac9" />
+          <stop offset="100%" stopColor="#adc0ae" />
+        </linearGradient>
+        <linearGradient id="floorGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#c6dbc9" />
+          <stop offset="50%" stopColor="#bed4c1" />
+          <stop offset="100%" stopColor="#b2c9b6" />
+        </linearGradient>
+        <radialGradient id="marbleShading" cx="38%" cy="35%" r="55%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="30%" stopColor="#f2f7f3" />
+          <stop offset="60%" stopColor="#d6e4d9" />
+          <stop offset="85%" stopColor="#b9ccbd" />
+          <stop offset="100%" stopColor="#9eb2a2" />
+        </radialGradient>
+        <radialGradient id="marbleHighlight" cx="30%" cy="28%" r="30%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="12" stdDeviation="18" floodColor="#486950" floodOpacity="0.22" />
+        </filter>
+      </defs>
+
+      {/* ── Track: outer wall (left side curved channel) ── */}
+      <g filter="url(#dropShadow)">
+        {/* Back wall of the channel */}
+        <path d="M 180 80 C 180 80 160 200 165 340 C 170 440 230 500 290 560 C 350 620 420 650 440 720 C 455 770 450 820 450 820 L 490 820 C 490 820 495 770 480 718 C 460 646 388 614 328 554 C 268 494 210 436 205 336 C 200 198 220 78 220 78 Z"
+          fill="url(#wallOuter)" />
+        {/* Channel floor */}
+        <path d="M 220 78 C 220 78 200 198 205 336 C 210 436 268 494 328 554 C 388 614 460 646 480 718 C 495 770 490 820 490 820 L 530 820 C 530 820 528 770 512 716 C 492 642 418 608 358 548 C 298 488 242 428 238 332 C 233 194 253 76 253 76 Z"
+          fill="url(#floorGrad)" />
+        {/* Inner wall face */}
+        <path d="M 253 76 C 253 76 233 194 238 332 C 242 428 298 488 358 548 C 418 608 492 642 512 716 C 528 770 530 820 530 820 L 560 820 C 560 820 558 768 542 714 C 522 638 448 603 388 542 C 328 482 273 420 269 328 C 264 190 284 74 284 74 Z"
+          fill="url(#wallFace)" />
+      </g>
+
+      {/* ── Marble sphere ── */}
+      <g filter="url(#dropShadow)">
+        <circle cx="352" cy="410" r="52" fill="url(#marbleShading)" />
+        <circle cx="352" cy="410" r="52" fill="url(#marbleHighlight)" />
+        {/* Specular glint */}
+        <ellipse cx="334" cy="393" rx="14" ry="9" fill="rgba(255,255,255,0.65)" transform="rotate(-20 334 393)" />
+      </g>
+    </svg>
+  )
+}
+
 // ── Auth screen ────────────────────────────────────────────────────────────
 
 function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [error, setError] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const switchMode = (m: 'login' | 'register' | 'forgot') => {
+    setMode(m)
+    setError('')
+    setForgotSent(false)
+    setShowPassword(false)
+    setShowConfirm(false)
+  }
 
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setError('')
     const fd = new FormData(e.currentTarget)
+
+    // Client-side validation for register
+    if (mode === 'register') {
+      const name = (fd.get('name') as string).trim()
+      const email = (fd.get('email') as string).trim()
+      const pwd = fd.get('password') as string
+      const confirm = fd.get('confirm') as string
+      const org = (fd.get('org') as string).trim()
+      if (name.length < 2) { setError('Full name must be at least 2 characters.'); return }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid business email address.'); return }
+      if (pwd.length < 8) { setError('Password must be at least 8 characters.'); return }
+      if (pwd !== confirm) { setError('Password and Confirm Password do not match.'); return }
+      if (org.length < 2) { setError('Business name must be at least 2 characters.'); return }
+    }
+
+    // Forgot password — UI only, no backend endpoint
+    if (mode === 'forgot') {
+      setBusy(true)
+      await new Promise(r => setTimeout(r, 800)) // brief simulated delay
+      setBusy(false)
+      setForgotSent(true)
+      return
+    }
+
+    setBusy(true)
     try {
       await api.csrf()
       if (mode === 'login') {
         await api.login(fd.get('email') as string, fd.get('password') as string)
       } else {
         await api.register(
-          fd.get('name') as string, fd.get('email') as string,
-          fd.get('password') as string, fd.get('org') as string
+          fd.get('name') as string,
+          fd.get('email') as string,
+          fd.get('password') as string,
+          fd.get('org') as string,
         )
       }
       const user = await api.me()
@@ -57,71 +157,475 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
     }
   }
 
+  const headings = {
+    login:    { eyebrow: 'RECEIVABLES, UNDER CONTROL', h1: 'Welcome Back', sub: 'Sign in to access your FinPilot AI workspace.' },
+    register: { eyebrow: 'YOUR BUSINESS WORKSPACE',   h1: 'Create Account', sub: 'Register your business profile to get started.' },
+    forgot:   { eyebrow: 'ACCOUNT RECOVERY',          h1: 'Reset Password', sub: 'Enter your registered email address.' },
+  }
+  const { eyebrow, h1, sub } = headings[mode]
+
   return (
-    <main className="auth">
-      <div className="auth-brand">
-        <div className="brand-icon"><Activity size={22} /></div>
-        <span>FinPilot <b>AI</b></span>
+    <main className="auth-shell">
+      {/* ── Browser-chrome wrapper card ── */}
+      <div className="auth-window">
+        {/* Window title bar */}
+        <div className="auth-titlebar">
+          <span className="auth-titlebar-dot" style={{ background: '#ff5f57' }} />
+          <span className="auth-titlebar-dot" style={{ background: '#febc2e' }} />
+          <span className="auth-titlebar-dot" style={{ background: '#28c840' }} />
+          <span className="auth-titlebar-label">FinPilot AI</span>
+        </div>
+
+        <div className="auth-columns">
+          {/* ── LEFT: form column ── */}
+          <div className="auth-left">
+            {/* Brand */}
+            <div className="auth-brand-row">
+              <div className="auth-brand-icon"><Activity size={18} /></div>
+              <span className="auth-brand-name">FinPilot <b>AI</b></span>
+            </div>
+
+            {/* Mode tabs (not shown on forgot screen) */}
+            {mode !== 'forgot' && (
+              <div className="auth-tabs">
+                <button
+                  type="button"
+                  className={`auth-tab${mode === 'login' ? ' auth-tab-active' : ''}`}
+                  onClick={() => switchMode('login')}
+                >Login</button>
+                <button
+                  type="button"
+                  className={`auth-tab${mode === 'register' ? ' auth-tab-active' : ''}`}
+                  onClick={() => switchMode('register')}
+                >Sign Up</button>
+              </div>
+            )}
+
+            {/* Headings */}
+            <div className="auth-eyebrow">{eyebrow}</div>
+            <h1 className="auth-h1">{h1}</h1>
+            <p className="auth-sub">{sub}</p>
+
+            {/* Error banner */}
+            {error && (
+              <div className="auth-error-banner">
+                <strong>{mode === 'login' ? 'Authentication failed' : mode === 'register' ? 'Registration failed' : 'Error'}</strong>
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Forgot-password success banner */}
+            {forgotSent && (
+              <div className="auth-success-banner">
+                <strong>Check your inbox</strong>
+                <span>If an account exists for that email, you'll receive reset instructions shortly. (Email delivery is not yet active in this build.)</span>
+              </div>
+            )}
+
+            {/* Form */}
+            {!forgotSent && (
+              <form onSubmit={handle} className="auth-form">
+                {mode === 'register' && (
+                  <>
+                    <div className="auth-field">
+                      <label htmlFor="fp-name">Full Name</label>
+                      <input id="fp-name" name="name" type="text" placeholder="e.g. Ankit Sharma" required autoComplete="name" />
+                    </div>
+                    <div className="auth-field">
+                      <label htmlFor="fp-org">Business Name</label>
+                      <input id="fp-org" name="org" type="text" placeholder="Your company" required />
+                    </div>
+                  </>
+                )}
+
+                <div className="auth-field">
+                  <label htmlFor="fp-email">{mode === 'login' ? 'Registered Email' : 'Business Email'}</label>
+                  <input id="fp-email" name="email" type="email" placeholder="you@company.com" required autoComplete="username" />
+                </div>
+
+                {mode !== 'forgot' && (
+                  <div className="auth-field">
+                    <div className="auth-field-row">
+                      <label htmlFor="fp-password">Password</label>
+                      {mode === 'login' && (
+                        <button type="button" className="auth-forgot-link" onClick={() => switchMode('forgot')}>
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="auth-password-wrap">
+                      <input
+                        id="fp-password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder={mode === 'login' ? '••••••••' : 'Minimum 8 characters'}
+                        required
+                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      />
+                      <button
+                        type="button"
+                        className="auth-eye-btn"
+                        onClick={() => setShowPassword(v => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'register' && (
+                  <div className="auth-field">
+                    <label htmlFor="fp-confirm">Confirm Password</label>
+                    <div className="auth-password-wrap">
+                      <input
+                        id="fp-confirm"
+                        name="confirm"
+                        type={showConfirm ? 'text' : 'password'}
+                        placeholder="Re-enter your password"
+                        required
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        className="auth-eye-btn"
+                        onClick={() => setShowConfirm(v => !v)}
+                        aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirm ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'login' && (
+                  <label className="auth-remember">
+                    <input type="checkbox" defaultChecked />
+                    <span>Remember Me</span>
+                  </label>
+                )}
+
+                <button className="auth-submit-btn" disabled={busy}>
+                  {busy
+                    ? (mode === 'login' ? 'Authenticating...' : mode === 'register' ? 'Creating Account...' : 'Sending...')
+                    : (mode === 'login' ? 'Login' : mode === 'register' ? 'Create Account & Continue →' : 'Send Reset Instructions')}
+                </button>
+              </form>
+            )}
+
+            {/* Bottom toggle link */}
+            {mode === 'forgot' ? (
+              <button type="button" className="auth-bottom-link" onClick={() => switchMode('login')}>
+                ← Back to Login
+              </button>
+            ) : (
+              <p className="auth-bottom-link">
+                {mode === 'login'
+                  ? <>Don't have an account? <button type="button" onClick={() => switchMode('register')}>Sign up</button></>
+                  : <>Already have an account? <button type="button" onClick={() => switchMode('login')}>Login</button></>
+                }
+              </p>
+            )}
+
+            <div className="auth-left-foot">© FinPilot AI 2026</div>
+          </div>
+
+          {/* ── RIGHT: artwork column ── */}
+          <div className="auth-right">
+            <MarbleArtwork />
+          </div>
+        </div>
       </div>
-      <section className="auth-card">
-        <div className="eyebrow">{mode === 'login' ? 'RECEIVABLES, UNDER CONTROL' : 'YOUR BUSINESS WORKSPACE'}</div>
-        <h1>{mode === 'login' ? <>Cash flow clarity<br />starts here.</> : <>Start with a<br />clearer picture.</>}</h1>
-        <p>{mode === 'login'
-          ? 'Bring invoices, collections, and customer follow-ups into one calm workspace.'
-          : 'Create your account and private organization in a few steps.'}</p>
-        <form onSubmit={handle}>
-          {mode === 'register' && <>
-            <label>Your name<input name="name" placeholder="Full name" required /></label>
-            <label>Business name<input name="org" placeholder="Your company" required /></label>
-          </>}
-          <label>Work email<input name="email" type="email" placeholder="you@company.com" required autoComplete="username" /></label>
-          <label>Password<input name="password" type="password" placeholder={mode === 'login' ? 'Your password' : 'At least 8 characters'} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} /></label>
-          {error && <div className="form-error">{error}</div>}
-          <button className="primary full" disabled={busy}>
-            {busy ? (mode === 'login' ? 'Signing in…' : 'Creating account…') : (mode === 'login' ? 'Sign in' : 'Create account')}
-            <span>→</span>
-          </button>
-        </form>
-        <button className="text-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}>
-          {mode === 'login' ? 'New to FinPilot? Create an account' : 'Already have an account? Sign in'}
-        </button>
-        <div className="secure-note"><ShieldCheck size={15} /> Secure, organization-scoped access</div>
-      </section>
-      <div className="auth-foot">Built for Indian businesses <span>·</span> INR native <span>·</span> Private by design</div>
     </main>
   )
 }
 
 // ── Create org screen ──────────────────────────────────────────────────────
 
+const INDIAN_STATES = [
+  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat',
+  'Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
+  'Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan',
+  'Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal',
+  'Delhi NCR','Chandigarh','Jammu & Kashmir','Ladakh','Puducherry','Other State / UT',
+]
+
 function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated: (org: Org) => void; onLogout: () => void }) {
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [createdOrg, setCreatedOrg] = useState<Org | null>(null)
+
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setBusy(true)
     const fd = new FormData(e.currentTarget)
+    const orgName = (fd.get('name') as string).trim()
+    if (orgName.length < 2) { setErr('Organization name must be at least 2 characters.'); return }
+    setBusy(true); setErr('')
     try {
-      const org = await api.createOrg(fd.get('name') as string)
+      const org = await api.createOrg({
+        name: orgName,
+        business_email: (fd.get('business_email') as string) || '',
+        contact_phone: (fd.get('phone') as string) || '',
+        state: (fd.get('state') as string) || '',
+        city: (fd.get('city') as string) || '',
+        legal_name: orgName,
+        structure: (fd.get('structure') as string) || '',
+        industry: (fd.get('industry') as string) || '',
+        org_size: (fd.get('org_size') as string) || '',
+      })
       const me = await api.me()
       const found = me.organizations.find(o => o.id === org.id)
-      if (found) onCreated(found)
-    } catch (err) {
-      alert((err as Error).message)
+      if (found) {
+        setCreatedOrg(found)
+        setShowSuccess(true)
+      }
+    } catch (error) {
+      setErr((error as Error).message)
     } finally { setBusy(false) }
   }
+
   return (
-    <main className="auth">
-      <div className="auth-brand"><div className="brand-icon"><Activity size={22} /></div><span>FinPilot <b>AI</b></span></div>
-      <section className="auth-card">
-        <div className="eyebrow">GET STARTED</div>
-        <h1>Create your<br />workspace.</h1>
-        <p>Your organization's records stay isolated from every other business.</p>
-        <form onSubmit={handle}>
-          <label>Business name<input name="name" placeholder="e.g. Acme Industries" required /></label>
-          <button className="primary full" disabled={busy}>{busy ? 'Creating…' : 'Create organization'}<span>→</span></button>
-        </form>
-        <button className="text-button" onClick={onLogout}>Sign out</button>
-      </section>
+    <main className="org-setup-shell">
+      <div className="org-setup-window">
+        {/* ── LEFT aside: brand + feature cards ── */}
+        <aside className="org-aside">
+          {/* Logo */}
+          <div className="org-aside-logo">
+            <div className="org-aside-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
+              </svg>
+            </div>
+            <div>
+              <div className="org-aside-brand">FinPilot <span>AI</span></div>
+              <div className="org-aside-tagline">AUTONOMOUS CASHFLOW ENGINE</div>
+            </div>
+          </div>
+          <div className="org-aside-badge">
+            <span className="org-badge-dot" />
+            Built for Indian MSME Working Capital
+          </div>
+
+          <h1 className="org-aside-h1">Set up your<br />organization</h1>
+          <p className="org-aside-desc">Create your high-trust business workspace to reconcile ledgers, orchestrate smart payment nudges, and secure predictable liquidity.</p>
+
+          {/* Feature cards */}
+          <div className="org-feature-cards">
+            <div className="org-feature-card">
+              <div className="org-feature-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                  <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+              </div>
+              <div>
+                <div className="org-feature-title">Track outstanding invoices</div>
+                <div className="org-feature-body">Continuous zero-latency sync across TallyPrime, Zoho Books, Busy, and GSTN e-Invoice portals.</div>
+              </div>
+            </div>
+            <div className="org-feature-card">
+              <div className="org-feature-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+              </div>
+              <div>
+                <div className="org-feature-title">Simplify payment follow-ups</div>
+                <div className="org-feature-body">Context-aware WhatsApp &amp; email follow-ups embed dynamic Bharat BillPay &amp; instant UPI autopay links.</div>
+              </div>
+            </div>
+            <div className="org-feature-card">
+              <div className="org-feature-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
+                </svg>
+              </div>
+              <div>
+                <div className="org-feature-title">Understand your cash flow</div>
+                <div className="org-feature-body">Predictive collection algorithms quantify DSO variances and forecast 90-day cash positions.</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Compliance footer */}
+          <div className="org-compliance">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#27845F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span>COMPLIANCE &amp; SECURITY STANDARDS</span>
+            <p>256-bit bank-grade encryption · RBI Fair Practices Framework · ISO 27001 &amp; SOC2 Type II Certified</p>
+          </div>
+        </aside>
+
+        {/* ── RIGHT section: form ── */}
+        <section className="org-form-panel">
+          {/* 3-step progress bar */}
+          <div className="org-progress">
+            <div className="org-progress-label">
+              <span className="org-step-done">STEP 2 OF 3</span>
+              <span className="org-step-next">Organization Setup · Next: Dashboard</span>
+            </div>
+            <div className="org-progress-bars">
+              <div className="org-progress-bar org-progress-done" />
+              <div className="org-progress-bar org-progress-active" />
+              <div className="org-progress-bar org-progress-upcoming" />
+            </div>
+            <div className="org-progress-steps">
+              <span className="org-step org-step-done-txt">✓ Sign In (Done)</span>
+              <span className="org-step org-step-active-txt">Org Setup (Active)</span>
+              <span className="org-step org-step-upcoming-txt">Step 3: Dashboard</span>
+            </div>
+          </div>
+
+          <h2 className="org-form-h2">Organization details</h2>
+          <p className="org-form-sub">Tell us a little about your business entity to configure your auto-reconciliation ledgers.</p>
+
+          {err && (
+            <div className="org-error-banner">
+              <strong>Setup failed</strong>
+              <span>{err}</span>
+            </div>
+          )}
+
+          <form onSubmit={handle} className="org-form">
+            {/* Row 1 */}
+            <div className="org-form-row">
+              <div className="org-field">
+                <label htmlFor="of-name">Organization Name <span className="org-required">*</span></label>
+                <input id="of-name" name="name" type="text" placeholder="e.g. Acme Tech Solutions Pvt Ltd" required />
+              </div>
+              <div className="org-field">
+                <label htmlFor="of-email">Business Email <span className="org-required">*</span></label>
+                <input id="of-email" name="business_email" type="email" placeholder="billing@company.com" defaultValue={user.email} required />
+              </div>
+            </div>
+
+            {/* Row 2 */}
+            <div className="org-form-row">
+              <div className="org-field">
+                <label htmlFor="of-phone">Phone Number <span className="org-required">*</span></label>
+                <input id="of-phone" name="phone" type="tel" placeholder="e.g. +91 98234 11290" required />
+              </div>
+              <div className="org-field">
+                <label htmlFor="of-structure">Business Structure <span className="org-required">*</span></label>
+                <select id="of-structure" name="structure" required defaultValue="Private Limited Company">
+                  <option>Private Limited Company</option>
+                  <option>Sole Proprietorship</option>
+                  <option>Partnership</option>
+                  <option>LLP</option>
+                  <option>Public Limited Company</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 3 */}
+            <div className="org-form-row">
+              <div className="org-field">
+                <label htmlFor="of-industry">Industry Vertical <span className="org-required">*</span></label>
+                <select id="of-industry" name="industry" required defaultValue="Manufacturing & Engineering">
+                  <option>Manufacturing &amp; Engineering</option>
+                  <option>Retail</option>
+                  <option>Wholesale / Distribution</option>
+                  <option>IT &amp; Software Services</option>
+                  <option>Professional Services</option>
+                  <option>Healthcare &amp; Pharma</option>
+                  <option>Education</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div className="org-field">
+                <label htmlFor="of-size">Organization Size <span className="org-required">*</span></label>
+                <select id="of-size" name="org_size" required defaultValue="11 - 50 employees">
+                  <option>1 - 10 employees</option>
+                  <option>11 - 50 employees</option>
+                  <option>51 - 200 employees</option>
+                  <option>201+ employees</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 4: location */}
+            <div className="org-form-row org-form-row-3">
+              <div className="org-field">
+                <label htmlFor="of-country">Country <span className="org-required">*</span></label>
+                <input id="of-country" name="country" type="text" value="India" readOnly className="org-input-locked" />
+              </div>
+              <div className="org-field">
+                <label htmlFor="of-state">State <span className="org-required">*</span></label>
+                <select id="of-state" name="state" required defaultValue="">
+                  <option value="" disabled>Select state</option>
+                  {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="org-field">
+                <label htmlFor="of-city">City <span className="org-required">*</span></label>
+                <input id="of-city" name="city" type="text" placeholder="e.g. Pune" required />
+              </div>
+            </div>
+
+            {/* Security note */}
+            <div className="org-security-box">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27845F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>Your business data is stored under AES-256 encryption. Only verified organization owners and appointed finance controllers can view ledger records.</span>
+            </div>
+
+            <div className="org-form-actions">
+              <button type="submit" className="org-submit-btn" disabled={busy}>
+                {busy ? 'Creating Workspace...' : 'Create Organization →'}
+              </button>
+              <button type="button" className="org-signout-btn" onClick={onLogout}>Sign out</button>
+            </div>
+          </form>
+
+          {/* Success overlay */}
+          {showSuccess && (
+            <div className="org-success-overlay">
+              <div className="org-success-content">
+                <div className="org-success-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#27845F" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <h2>Organization Configured!</h2>
+                <p>Your workspace has been initialized with statutory MSME limits and ledger reconciliation rules.</p>
+                <button
+                  className="org-submit-btn"
+                  onClick={() => { if (createdOrg) onCreated(createdOrg) }}
+                >
+                  Launch Dashboard →
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   )
 }
@@ -1411,7 +1915,7 @@ export default function App() {
                 {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
-                    <p style={{ whiteSpace: 'pre-wrap' }}>{answer}</p>
+                    <MarkdownAnswer text={answer} />
                   </div>
                 )}
 

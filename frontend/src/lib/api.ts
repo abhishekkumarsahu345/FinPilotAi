@@ -223,8 +223,28 @@ export const api = {
   me: () => request<User>('GET', '/api/v1/auth/me/'),
 
   // Org
-  createOrg: (name: string) =>
-    request<{ id: string; name: string }>('POST', '/api/v1/organizations/', { name, default_currency: 'INR', country: 'IN', timezone: 'Asia/Kolkata' }),
+  createOrg: (data: {
+    name: string
+    business_email?: string
+    contact_phone?: string
+    state?: string
+    city?: string
+    legal_name?: string
+    structure?: string
+    industry?: string
+    org_size?: string
+  }) =>
+    request<{ id: string; name: string }>('POST', '/api/v1/organizations/', {
+      name: data.name,
+      legal_name: data.legal_name || '',
+      business_email: data.business_email || '',
+      contact_phone: data.contact_phone || '',
+      state: data.state || '',
+      billing_address: data.city ? data.city : '',
+      default_currency: 'INR',
+      country: 'IN',
+      timezone: 'Asia/Kolkata',
+    }),
 
   // Dashboard
   dashboard: (orgId: string) => request<DashboardData>('GET', `/api/v1/dashboard/`, undefined, orgId),
