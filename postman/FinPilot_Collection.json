@@ -1,0 +1,2050 @@
+{
+  "info": {
+    "_postman_id": "finpilot-collection-001",
+    "name": "FinPilot AI - Complete API Collection",
+    "description": "Complete API test collection for FinPilot AI backend.\n\n## Setup Order\n1. Import both this file and FinPilot_Environment.json into Postman.\n2. Select the 'FinPilot AI - Local Dev' environment.\n3. Run '01 - Get CSRF Token' first (Auth folder).\n4. Run '02 - Login' next.\n5. Run '03 - Get Current User (me)' — this auto-sets organization_id.\n6. All other requests are now ready to run.\n\n## Auth Model\n- Cookie-based Django session authentication (NO JWT, NO Bearer tokens).\n- Postman must have 'Automatically follow redirects' ON and cookie management ON.\n- Every mutation (POST/PUT/PATCH) needs header: X-CSRFToken: {{csrf_token}}\n- Every org-scoped endpoint needs header: X-Organization-ID: {{organization_id}}\n\n## Amount Encoding\n- All monetary amounts are integers in PAISE (Indian minor units).\n- ₹1 = 100 paise. Example: ₹1,000 = 100000 (integer, no decimal).\n\n## GST Rate Encoding\n- GST rates are in BASIS POINTS (bps). 100 bps = 1%.\n- 18% GST = 1800 bps. 5% GST = 500 bps. 28% GST = 2800 bps.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "{{base_url}}" }
+  ],
+  "item": [
+
+    {
+      "name": "01 - Authentication",
+      "description": "Session-based auth endpoints. Run these first in order: CSRF → Login → Me.",
+      "item": [
+
+        {
+          "name": "01 - Get CSRF Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/auth/csrf/", "host": ["{{base_url}}"], "path": ["api","v1","auth","csrf",""] },
+            "description": "Sets the csrftoken cookie. Must be called before any POST/PUT/PATCH request.\nX-Organization-ID: NOT required\nX-CSRFToken: NOT required\nAuthentication: NOT required"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const cookie = pm.cookies.get('csrftoken');",
+                  "if (cookie) {",
+                  "    pm.environment.set('csrf_token', cookie);",
+                  "    console.log('CSRF token captured: ' + cookie);",
+                  "} else {",
+                  "    console.warn('csrftoken cookie not found — check Postman cookie settings');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Register New User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Rahul Sharma\",\n  \"email\": \"rahul@acme.com\",\n  \"password\": \"SecurePass@123\",\n  \"organization_name\": \"Acme Industries Pvt Ltd\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/register/", "host": ["{{base_url}}"], "path": ["api","v1","auth","register",""] },
+            "description": "Register a new user and create their first organization.\nRequired fields: full_name, email, password, organization_name\nSeeds default GST rates automatically.\nX-Organization-ID: NOT required\nX-CSRFToken: REQUIRED\nAuthentication: NOT required"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.organization_id) {",
+                  "    pm.environment.set('organization_id', body.organization_id);",
+                  "    console.log('Organization ID set: ' + body.organization_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"rahul@acme.com\",\n  \"password\": \"SecurePass@123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login/", "host": ["{{base_url}}"], "path": ["api","v1","auth","login",""] },
+            "description": "Sign in with email and password.\nNOTE: The field name is 'username' but accepts an email address.\nSets the sessionid cookie on success.\nX-Organization-ID: NOT required\nX-CSRFToken: REQUIRED\nAuthentication: NOT required"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has detail', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.detail).to.eql('Signed in');",
+                  "});",
+                  "const session = pm.cookies.get('sessionid');",
+                  "if (session) {",
+                  "    console.log('Session cookie captured');",
+                  "} else {",
+                  "    console.warn('sessionid cookie not found');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "04 - Get Current User (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/auth/me/", "host": ["{{base_url}}"], "path": ["api","v1","auth","me",""] },
+            "description": "Returns authenticated user info and their organizations.\nAuto-sets organization_id from the first organization.\nX-Organization-ID: NOT required\nX-CSRFToken: NOT required\nAuthentication: REQUIRED (session cookie)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has organizations', () => pm.expect(body.organizations).to.be.an('array').with.length.above(0));",
+                  "if (body.organizations && body.organizations.length > 0) {",
+                  "    const orgId = body.organizations[0].id;",
+                  "    pm.environment.set('organization_id', orgId);",
+                  "    console.log('Organization ID auto-set: ' + orgId);",
+                  "    console.log('Role: ' + body.organizations[0].role);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "05 - Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/auth/logout/", "host": ["{{base_url}}"], "path": ["api","v1","auth","logout",""] },
+            "description": "Invalidates the server session. Idempotent — safe to call even if not logged in.\nX-Organization-ID: OPTIONAL (included for audit log completeness)\nX-CSRFToken: REQUIRED\nAuthentication: NOT strictly required (idempotent)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "02 - Organizations",
+      "description": "Organization CRUD. Creating an org does NOT require X-Organization-ID. All other actions do.",
+      "item": [
+
+        {
+          "name": "01 - List My Organizations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/organizations/", "host": ["{{base_url}}"], "path": ["api","v1","organizations",""] },
+            "description": "Lists all organizations the authenticated user is a member of.\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Create Organization",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Beta Ventures Pvt Ltd\",\n  \"legal_name\": \"Beta Ventures Private Limited\",\n  \"business_email\": \"admin@betaventures.com\",\n  \"contact_phone\": \"+91-9876543210\",\n  \"state\": \"Maharashtra\",\n  \"billing_address\": \"42 Business Park, Pune\",\n  \"default_currency\": \"INR\",\n  \"country\": \"IN\",\n  \"timezone\": \"Asia/Kolkata\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/organizations/", "host": ["{{base_url}}"], "path": ["api","v1","organizations",""] },
+            "description": "Create a new organization. The calling user becomes the owner.\nX-Organization-ID: NOT required\nX-CSRFToken: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Get Organization Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/organizations/{{organization_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","organizations","{{organization_id}}",""] },
+            "description": "Get full organization detail including state (needed for GST place-of-supply).\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has state field', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('state');",
+                  "    pm.expect(body).to.have.property('default_currency');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "04 - Update Organization (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"state\": \"Maharashtra\",\n  \"contact_phone\": \"+91-9876543210\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/organizations/{{organization_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","organizations","{{organization_id}}",""] },
+            "description": "Partial update organization fields.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED\nRole required: owner, manager, or accountant"
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - List Team Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/members/", "host": ["{{base_url}}"], "path": ["api","v1","members",""] },
+            "description": "List all active members in the organization with their roles.\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "03 - Dashboard & Reports",
+      "description": "Read-only analytics endpoints. All require X-Organization-ID.",
+      "item": [
+
+        {
+          "name": "01 - Get Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/dashboard/", "host": ["{{base_url}}"], "path": ["api","v1","dashboard",""] },
+            "description": "Main KPI dashboard. Returns outstanding, overdue, due-today, due-next-7-days, top overdue customers, recent payments.\nAll amounts in PAISE (divide by 100 for rupees).\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has required fields', () => {",
+                  "    pm.expect(body).to.have.property('outstanding_minor');",
+                  "    pm.expect(body).to.have.property('overdue_minor');",
+                  "    pm.expect(body).to.have.property('currency');",
+                  "    pm.expect(body).to.have.property('top_overdue_customers');",
+                  "    pm.expect(body).to.have.property('recent_payments');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Aging Report (Today)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/reports/aging/", "host": ["{{base_url}}"], "path": ["api","v1","reports","aging",""] },
+            "description": "Accounts-receivable aging buckets as of today.\nBuckets: not_yet_due, days_1_30, days_31_60, days_61_90, over_90\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has buckets', () => {",
+                  "    pm.expect(body).to.have.property('buckets');",
+                  "    pm.expect(body).to.have.property('bucket_totals');",
+                  "    pm.expect(body).to.have.property('grand_total_minor');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Aging Report (Custom Date)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/reports/aging/?as_of=2026-10-31",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","reports","aging",""],
+              "query": [{ "key": "as_of", "value": "2026-10-31", "description": "Date in YYYY-MM-DD format" }]
+            },
+            "description": "Aging report as of a specific historical date.\nQuery param: as_of=YYYY-MM-DD (optional, defaults to today)\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "04 - Customers",
+      "description": "Customer CRUD with GST validation and opt-out management.",
+      "item": [
+
+        {
+          "name": "01 - List Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers/?page_size=25",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","customers",""],
+              "query": [
+                { "key": "page_size", "value": "25", "description": "Items per page (max 200)" },
+                { "key": "page", "value": "1", "description": "Page number", "disabled": true },
+                { "key": "search", "value": "acme", "description": "Search name, email, phone, gstin", "disabled": true },
+                { "key": "active", "value": "true", "description": "Filter by active status (true/false)", "disabled": true },
+                { "key": "ordering", "value": "name", "description": "Sort: name, -name, created_at, -created_at", "disabled": true }
+              ]
+            },
+            "description": "List customers with pagination. Supports search and filtering.\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Paginated response', () => {",
+                  "    pm.expect(body).to.have.property('count');",
+                  "    pm.expect(body).to.have.property('results');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"XYZ Technologies Pvt Ltd\",\n  \"contact_name\": \"Priya Mehta\",\n  \"email\": \"priya@xyztechnologies.com\",\n  \"phone\": \"9876543210\",\n  \"billing_address\": \"Plot 42, MIDC, Pune - 411001\",\n  \"gstin\": \"27AABCX1234A1Z5\",\n  \"state\": \"Maharashtra\",\n  \"payment_terms_days\": 30,\n  \"notes\": \"Key client — Q4 contract\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/customers/", "host": ["{{base_url}}"], "path": ["api","v1","customers",""] },
+            "description": "Create a new customer. Required: name. All others optional.\nGSTIN format: 22AAAAA0000A1Z5 (15 chars, format-validated).\nResponse may include 'warnings' array for duplicate name/email/phone/GSTIN.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "    pm.environment.set('test_customer_id', body.id);",
+                  "    console.log('Customer ID saved: ' + body.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Get Customer Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "url": { "raw": "{{base_url}}/api/v1/customers/{{test_customer_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","customers","{{test_customer_id}}",""] },
+            "description": "Get a single customer's full detail.\nX-Organization-ID: REQUIRED\nAuthentication: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Update Customer (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_terms_days\": 45,\n  \"notes\": \"Updated payment terms to 45 days\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/customers/{{test_customer_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","customers","{{test_customer_id}}",""] },
+            "description": "Partial update. Only send fields you want to change.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - Full Update Customer (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"XYZ Technologies Pvt Ltd\",\n  \"contact_name\": \"Priya Mehta\",\n  \"email\": \"priya@xyztechnologies.com\",\n  \"phone\": \"9876543210\",\n  \"billing_address\": \"Plot 42, MIDC, Pune - 411001\",\n  \"gstin\": \"27AABCX1234A1Z5\",\n  \"state\": \"Maharashtra\",\n  \"payment_terms_days\": 45,\n  \"notes\": \"Updated\",\n  \"active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/customers/{{test_customer_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","customers","{{test_customer_id}}",""] },
+            "description": "Full replacement update — all fields must be sent.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "06 - Customer Opt-Out of Reminders",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/customers/{{test_customer_id}}/opt-out/", "host": ["{{base_url}}"], "path": ["api","v1","customers","{{test_customer_id}}","opt-out",""] },
+            "description": "Mark a customer as opted out of automated reminders. Sets opt_out=true.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "07 - Customer Opt-In to Reminders",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/customers/{{test_customer_id}}/opt-in/", "host": ["{{base_url}}"], "path": ["api","v1","customers","{{test_customer_id}}","opt-in",""] },
+            "description": "Re-enable automated reminders for a customer. Sets opt_out=false.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "05 - GST Rates",
+      "description": "GST rate management. Create these before creating invoices with GST. Rate is in BASIS POINTS: 18% = 1800.",
+      "item": [
+
+        {
+          "name": "01 - List GST Rates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/gst-rates/?page_size=200",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","gst-rates",""],
+              "query": [
+                { "key": "page_size", "value": "200" },
+                { "key": "active", "value": "true", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.results && body.results.length > 0) {",
+                  "    pm.environment.set('test_gst_rate_id', body.results[0].id);",
+                  "    console.log('First GST rate ID saved: ' + body.results[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Create GST Rate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"GST 18%\",\n  \"rate_bps\": 1800\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/gst-rates/", "host": ["{{base_url}}"], "path": ["api","v1","gst-rates",""] },
+            "description": "Create a GST rate. rate_bps is basis points: 100 bps = 1%. Common values:\n  0 = Exempt/No GST\n  500 = 5%\n  1200 = 12%\n  1800 = 18%\n  2800 = 28%\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) { pm.environment.set('test_gst_rate_id', body.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Get GST Rate Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/gst-rates/{{test_gst_rate_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","gst-rates","{{test_gst_rate_id}}",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Update GST Rate (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"GST 18% (Standard)\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/gst-rates/{{test_gst_rate_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","gst-rates","{{test_gst_rate_id}}",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - Deactivate GST Rate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/gst-rates/{{test_gst_rate_id}}/deactivate/", "host": ["{{base_url}}"], "path": ["api","v1","gst-rates","{{test_gst_rate_id}}","deactivate",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "06 - Activate GST Rate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/gst-rates/{{test_gst_rate_id}}/activate/", "host": ["{{base_url}}"], "path": ["api","v1","gst-rates","{{test_gst_rate_id}}","activate",""] }
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "06 - Products",
+      "description": "Product/service catalog management. Requires GST rates to exist first for default_gst_rate field.",
+      "item": [
+
+        {
+          "name": "01 - List Products",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products/?page_size=200",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","products",""],
+              "query": [
+                { "key": "page_size", "value": "200" },
+                { "key": "search", "value": "consulting", "disabled": true },
+                { "key": "active", "value": "true", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "02 - Create Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"IT Consulting Services\",\n  \"description\": \"Professional IT consulting and advisory services\",\n  \"unit\": \"hour\",\n  \"sku\": \"CONSULT-001\",\n  \"hsn_sac\": \"9983\",\n  \"price_minor\": 500000,\n  \"default_gst_rate\": \"{{test_gst_rate_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/products/", "host": ["{{base_url}}"], "path": ["api","v1","products",""] },
+            "description": "Create a product/service. price_minor is in PAISE (₹5000/hr = 500000).\ndefault_gst_rate must be a UUID of a GST rate belonging to this org.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) { pm.environment.set('test_product_id', body.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Get Product Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/products/{{test_product_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","products","{{test_product_id}}",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Update Product (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_minor\": 600000,\n  \"description\": \"Updated description\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/products/{{test_product_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","products","{{test_product_id}}",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - Deactivate Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/products/{{test_product_id}}/deactivate/", "host": ["{{base_url}}"], "path": ["api","v1","products","{{test_product_id}}","deactivate",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "06 - Activate Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/products/{{test_product_id}}/activate/", "host": ["{{base_url}}"], "path": ["api","v1","products","{{test_product_id}}","activate",""] }
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "07 - Invoices",
+      "description": "Invoice CRUD. Requires a customer. Amounts in PAISE. GST rate in BASIS POINTS.",
+      "item": [
+
+        {
+          "name": "01 - List Invoices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invoices/?page_size=25",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","invoices",""],
+              "query": [
+                { "key": "page_size", "value": "25" },
+                { "key": "status", "value": "issued", "description": "Filter: draft, issued, void", "disabled": true },
+                { "key": "customer", "value": "{{test_customer_id}}", "description": "Filter by customer UUID", "disabled": true },
+                { "key": "search", "value": "INV-001", "description": "Search by invoice number or customer name", "disabled": true },
+                { "key": "ordering", "value": "-invoice_date", "description": "Sort options: invoice_date, due_date, total_minor, created_at (prefix - for desc)", "disabled": true }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Paginated', () => pm.expect(body).to.have.property('results'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Create Invoice (with GST line items)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{test_customer_id}}\",\n  \"invoice_number\": \"INV-2026-001\",\n  \"invoice_date\": \"2026-11-01\",\n  \"due_date\": \"2026-11-30\",\n  \"currency\": \"INR\",\n  \"discount_minor\": 0,\n  \"notes\": \"Q4 consulting services\",\n  \"status\": \"issued\",\n  \"items\": [\n    {\n      \"product\": null,\n      \"description\": \"IT Consulting — 10 hours\",\n      \"quantity\": 10,\n      \"unit_price_minor\": 500000,\n      \"discount_minor\": 0,\n      \"gst_rate_bps\": 1800,\n      \"gst_rate_name\": \"GST 18%\",\n      \"hsn_sac\": \"9983\",\n      \"sort_order\": 0\n    },\n    {\n      \"product\": null,\n      \"description\": \"Software License\",\n      \"quantity\": 1,\n      \"unit_price_minor\": 200000,\n      \"discount_minor\": 10000,\n      \"gst_rate_bps\": 1800,\n      \"gst_rate_name\": \"GST 18%\",\n      \"hsn_sac\": \"9983\",\n      \"sort_order\": 1\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/invoices/", "host": ["{{base_url}}"], "path": ["api","v1","invoices",""] },
+            "description": "Create invoice with line items. The server computes subtotal/tax from items.\nunit_price_minor and discount_minor are in PAISE.\ngst_rate_bps is basis points (1800 = 18%).\nResponse includes gst_summary with CGST/SGST/IGST split.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "    pm.environment.set('test_invoice_id', body.id);",
+                  "    console.log('Invoice ID saved: ' + body.id);",
+                  "    console.log('Total: ' + body.total_minor + ' paise = ₹' + (body.total_minor/100));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Create Invoice (header-only, no line items)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{test_customer_id}}\",\n  \"invoice_number\": \"INV-2026-002\",\n  \"invoice_date\": \"2026-11-01\",\n  \"due_date\": \"2026-11-30\",\n  \"currency\": \"INR\",\n  \"subtotal_minor\": 500000,\n  \"discount_minor\": 0,\n  \"tax_minor\": 90000,\n  \"notes\": \"Header-only invoice (no line items)\",\n  \"status\": \"issued\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/invoices/", "host": ["{{base_url}}"], "path": ["api","v1","invoices",""] },
+            "description": "Create invoice without line items. subtotal_minor and tax_minor must be provided.\nTotal = subtotal - discount + tax.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Get Invoice Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/invoices/{{test_invoice_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","invoices","{{test_invoice_id}}",""] },
+            "description": "Get invoice with all line items, GST summary, and payment allocation info.\nResponse includes: paid_minor, balance_minor, display_status, gst_summary."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has GST summary', () => pm.expect(body).to.have.property('gst_summary'));",
+                  "pm.test('Has balance', () => pm.expect(body).to.have.property('balance_minor'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "05 - Update Invoice (PUT - Full)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{test_customer_id}}\",\n  \"invoice_number\": \"INV-2026-001\",\n  \"invoice_date\": \"2026-11-01\",\n  \"due_date\": \"2026-12-15\",\n  \"currency\": \"INR\",\n  \"discount_minor\": 0,\n  \"notes\": \"Updated due date to Dec 15\",\n  \"status\": \"issued\",\n  \"items\": [\n    {\n      \"description\": \"IT Consulting — 10 hours\",\n      \"quantity\": 10,\n      \"unit_price_minor\": 500000,\n      \"discount_minor\": 0,\n      \"gst_rate_bps\": 1800,\n      \"gst_rate_name\": \"GST 18%\",\n      \"hsn_sac\": \"9983\",\n      \"sort_order\": 0\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/invoices/{{test_invoice_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","invoices","{{test_invoice_id}}",""] },
+            "description": "Full update. If items are included, existing line items are DELETED and replaced.\nNote: cannot change total if active payment allocations exist.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "06 - Void Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/invoices/{{test_invoice_id}}/void/", "host": ["{{base_url}}"], "path": ["api","v1","invoices","{{test_invoice_id}}","void",""] },
+            "description": "Void an invoice. Cannot void if active payment allocations exist.\nReturns 400 if the invoice has active allocations.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Status is void', () => pm.expect(body.status).to.eql('void'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "08 - Payments",
+      "description": "Payment recording and allocation management. Requires customer and invoice UUIDs.",
+      "item": [
+
+        {
+          "name": "01 - List Payments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payments/?page_size=25",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","payments",""],
+              "query": [
+                { "key": "page_size", "value": "25" },
+                { "key": "customer", "value": "{{test_customer_id}}", "disabled": true },
+                { "key": "ordering", "value": "-payment_date", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "02 - Record Payment (with allocation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{test_customer_id}}\",\n  \"payment_date\": \"2026-11-10\",\n  \"amount_minor\": 500000,\n  \"currency\": \"INR\",\n  \"method\": \"upi\",\n  \"reference\": \"UPI-TXN-9876543210\",\n  \"notes\": \"Payment for INV-2026-001\",\n  \"allocations_input\": [\n    {\n      \"invoice\": \"{{test_invoice_id}}\",\n      \"amount_minor\": 500000\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/payments/", "host": ["{{base_url}}"], "path": ["api","v1","payments",""] },
+            "description": "Record a payment with optional invoice allocations.\nmethod values: bank_transfer, upi, cheque, cash, card, other\nallocation amount cannot exceed invoice outstanding balance.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "    pm.environment.set('test_payment_id', body.id);",
+                  "    if (body.allocations && body.allocations.length > 0) {",
+                  "        pm.environment.set('test_allocation_id', body.allocations[0].id);",
+                  "        console.log('Allocation ID saved: ' + body.allocations[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "03 - Record Payment (no allocation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"{{test_customer_id}}\",\n  \"payment_date\": \"2026-11-11\",\n  \"amount_minor\": 100000,\n  \"currency\": \"INR\",\n  \"method\": \"cash\",\n  \"reference\": \"\",\n  \"notes\": \"Advance payment — to be allocated later\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/payments/", "host": ["{{base_url}}"], "path": ["api","v1","payments",""] },
+            "description": "Unallocated payment. unallocated_minor will equal the full amount.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Get Payment Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/payments/{{test_payment_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","payments","{{test_payment_id}}",""] },
+            "description": "Get payment with all allocations and unallocated balance."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has allocations', () => pm.expect(body).to.have.property('allocations'));",
+                  "pm.test('Has unallocated_minor', () => pm.expect(body).to.have.property('unallocated_minor'));",
+                  "if (body.allocations && body.allocations.length > 0) {",
+                  "    pm.environment.set('test_allocation_id', body.allocations[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "05 - Reverse Payment Allocation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/payments/{{test_payment_id}}/allocations/{{test_allocation_id}}/reverse/", "host": ["{{base_url}}"], "path": ["api","v1","payments","{{test_payment_id}}","allocations","{{test_allocation_id}}","reverse",""] },
+            "description": "Reverse a specific payment allocation. Sets reversed_at timestamp.\nCannot be reversed twice.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "09 - AI Assistant",
+      "description": "LLM-powered financial Q&A. Uses function calling internally. Read-only — never modifies data.",
+      "item": [
+
+        {
+          "name": "01 - Ask a Question",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is the total overdue amount?\",\n  \"session_id\": \"postman-test-session-001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/assistant/", "host": ["{{base_url}}"], "path": ["api","v1","assistant",""] },
+            "description": "Ask a plain-English question about the org's financial data.\nThe LLM calls internal tools to fetch data and generates a natural language answer.\nquestion: 1-2000 characters\nsession_id: optional UUID for session tracking\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 or 503', () => {",
+                  "    pm.expect([200, 503]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Has answer', () => pm.expect(body).to.have.property('answer'));",
+                  "    pm.test('Has basis', () => pm.expect(body).to.have.property('basis'));",
+                  "    console.log('Answer: ' + body.answer.substring(0, 200));",
+                  "} else {",
+                  "    console.warn('AI unavailable — check API key in backend .env');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Ask About Top Overdue Customers",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Which customers have the highest overdue balances? Show top 5.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/assistant/", "host": ["{{base_url}}"], "path": ["api","v1","assistant",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - Ask About Cash Flow Forecast",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How much cash inflow should I expect in the next 30 days?\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/assistant/", "host": ["{{base_url}}"], "path": ["api","v1","assistant",""] }
+          },
+          "response": []
+        },
+
+        {
+          "name": "04 - Validation Error Test (empty question)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/assistant/", "host": ["{{base_url}}"], "path": ["api","v1","assistant",""] },
+            "description": "Should return 400 with error_type: validation_error"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has error_type validation_error', () => pm.expect(body.error_type).to.eql('validation_error'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "10 - Notifications",
+      "description": "In-app notification management.",
+      "item": [
+
+        {
+          "name": "01 - List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/notifications/", "host": ["{{base_url}}"], "path": ["api","v1","notifications",""] },
+            "description": "List last 50 notifications for the authenticated user in this org.\nReturns unread_count + notifications array.\nX-Organization-ID: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has unread_count', () => pm.expect(body).to.have.property('unread_count'));",
+                  "if (body.notifications && body.notifications.length > 0) {",
+                  "    pm.environment.set('test_notification_id', body.notifications[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Mark Single Notification Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/notifications/{{test_notification_id}}/read/", "host": ["{{base_url}}"], "path": ["api","v1","notifications","{{test_notification_id}}","read",""] },
+            "description": "Mark a single notification as read. Idempotent.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - Mark All Notifications Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/notifications/mark-all-read/", "host": ["{{base_url}}"], "path": ["api","v1","notifications","mark-all-read",""] },
+            "description": "Mark all unread notifications as read for the current user in this org.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "11 - Forecast",
+      "description": "Cash inflow forecasting. Backend fully implemented; note it is currently disabled in the frontend.",
+      "item": [
+
+        {
+          "name": "01 - Forecast (30 days, due date)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/forecasts/?period=30&timing=due_date",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","forecasts",""],
+              "query": [
+                { "key": "period", "value": "30", "description": "7, 30, or 60 days" },
+                { "key": "timing", "value": "due_date", "description": "due_date | historical_delay | custom_offset" }
+              ]
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "02 - Forecast (7 days, historical delay)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/forecasts/?period=7&timing=historical_delay",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","forecasts",""],
+              "query": [
+                { "key": "period", "value": "7" },
+                { "key": "timing", "value": "historical_delay" }
+              ]
+            }
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - Forecast (60 days, custom offset)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/forecasts/?period=60&timing=custom_offset&offset=7",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","forecasts",""],
+              "query": [
+                { "key": "period", "value": "60" },
+                { "key": "timing", "value": "custom_offset" },
+                { "key": "offset", "value": "7", "description": "Days offset (integer, only used with custom_offset)" }
+              ]
+            }
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "12 - Reminders",
+      "description": "Reminder templates, policies, and jobs. Backend fully implemented; UI is coming-soon stub in frontend.",
+      "item": [
+
+        {
+          "name": "Templates",
+          "item": [
+            {
+              "name": "01 - List Templates",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": { "raw": "{{base_url}}/api/v1/reminders/templates/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","templates",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "02 - Create Template",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"7-Day Overdue Email Reminder\",\n  \"channel\": \"email\",\n  \"subject\": \"Payment Reminder: Invoice {{invoice_number}} is overdue\",\n  \"body\": \"Dear {{customer_name}},\\n\\nThis is a reminder that invoice {{invoice_number}} dated {{invoice_date}} with a due date of {{due_date}} for {{outstanding_amount}} remains unpaid.\\n\\nKindly arrange payment at your earliest convenience.\\n\\nRegards,\\n{{business_contact}}\",\n  \"active\": true\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/templates/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","templates",""] },
+                "description": "Supported placeholders: {{customer_name}}, {{invoice_number}}, {{invoice_date}}, {{due_date}}, {{outstanding_amount}}, {{payment_reference_instructions}}, {{business_contact}}\nchannel: email or whatsapp\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) { pm.environment.set('test_reminder_template_id', body.id); }"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "response": []
+            },
+            {
+              "name": "03 - Get Template Detail",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": { "raw": "{{base_url}}/api/v1/reminders/templates/{{test_reminder_template_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","templates","{{test_reminder_template_id}}",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "04 - Update Template (PATCH)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"7-Day Overdue Email Reminder (Updated)\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/templates/{{test_reminder_template_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","templates","{{test_reminder_template_id}}",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "05 - Approve Template Revision",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/templates/{{test_reminder_template_id}}/approve-revision/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","templates","{{test_reminder_template_id}}","approve-revision",""] },
+                "description": "Approve a pending revision. Requires owner or manager role (FINANCE_ROLES).\nReturns 400 if no pending revision exists.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Policies",
+          "item": [
+            {
+              "name": "01 - List Policies",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": { "raw": "{{base_url}}/api/v1/reminders/policies/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","policies",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "02 - Create Policy",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"7-Day Post-Due Email Policy\",\n  \"applicable_statuses\": [\"issued\"],\n  \"trigger_offset_days\": 7,\n  \"channel\": \"email\",\n  \"template\": \"{{test_reminder_template_id}}\",\n  \"send_hour\": 9,\n  \"send_minute\": 0,\n  \"max_attempts\": 3,\n  \"min_days_between_reminders\": 7,\n  \"excluded_customer_ids\": [],\n  \"enabled\": true\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/policies/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","policies",""] },
+                "description": "trigger_offset_days: positive = after due date, negative = before due date.\napplicable_statuses: list of invoice status strings.\napproval_mode is always set to 'manual' on creation.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) { pm.environment.set('test_reminder_policy_id', body.id); }"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "response": []
+            },
+            {
+              "name": "03 - Get Policy Detail",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": { "raw": "{{base_url}}/api/v1/reminders/policies/{{test_reminder_policy_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","policies","{{test_reminder_policy_id}}",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "04 - Activate Auto-Send Mode",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"confirm\": true\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/policies/{{test_reminder_policy_id}}/activate-auto/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","policies","{{test_reminder_policy_id}}","activate-auto",""] },
+                "description": "Requires body {\"confirm\": true} and owner or manager role.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+              },
+              "response": []
+            },
+            {
+              "name": "05 - Deactivate Auto-Send Mode",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/policies/{{test_reminder_policy_id}}/deactivate-auto/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","policies","{{test_reminder_policy_id}}","deactivate-auto",""] }
+              },
+              "response": []
+            }
+          ]
+        },
+
+        {
+          "name": "Jobs",
+          "item": [
+            {
+              "name": "01 - List Reminder Jobs",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/reminders/jobs/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api","v1","reminders","jobs",""],
+                  "query": [
+                    { "key": "status", "value": "proposed", "description": "Filter: proposed, approved, scheduled, dispatched, blocked, rejected, failed", "disabled": true },
+                    { "key": "invoice", "value": "{{test_invoice_id}}", "disabled": true },
+                    { "key": "policy", "value": "{{test_reminder_policy_id}}", "disabled": true }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "if (body.results && body.results.length > 0) {",
+                      "    pm.environment.set('test_reminder_job_id', body.results[0].id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "response": []
+            },
+            {
+              "name": "02 - Get Reminder Job Detail",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+                "url": { "raw": "{{base_url}}/api/v1/reminders/jobs/{{test_reminder_job_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","jobs","{{test_reminder_job_id}}",""] }
+              },
+              "response": []
+            },
+            {
+              "name": "03 - Approve Reminder Job",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/jobs/{{test_reminder_job_id}}/approve/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","jobs","{{test_reminder_job_id}}","approve",""] },
+                "description": "Approve a proposed reminder job for dispatch. Requires owner or manager role.\nFails with 400 if invoice has been paid since job was created.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+              },
+              "response": []
+            },
+            {
+              "name": "04 - Reject Reminder Job",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+                  { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{base_url}}/api/v1/reminders/jobs/{{test_reminder_job_id}}/reject/", "host": ["{{base_url}}"], "path": ["api","v1","reminders","jobs","{{test_reminder_job_id}}","reject",""] }
+              },
+              "response": []
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "13 - Reconciliation",
+      "description": "Bank statement upload and reconciliation matching. Backend fully implemented; UI is coming-soon in frontend.",
+      "item": [
+
+        {
+          "name": "01 - Upload Bank Statement",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select a CSV or XLSX bank statement file from your computer" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/v1/imports/bank-statements/", "host": ["{{base_url}}"], "path": ["api","v1","imports","bank-statements",""] },
+            "description": "Upload a CSV or XLSX bank statement. Max 10 MB.\nReturns batch_id, detected_columns, sample_rows.\nContent-Type is set automatically by Postman for multipart/form-data.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.batch_id) {",
+                  "        pm.environment.set('test_bank_batch_id', body.batch_id);",
+                  "        console.log('Bank batch ID: ' + body.batch_id);",
+                  "        console.log('Detected columns: ' + JSON.stringify(body.detected_columns));",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "02 - Confirm Column Mapping",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapping\": {\n    \"transaction_date\": \"Date\",\n    \"description\": \"Narration\",\n    \"credit_amount\": \"Credit\",\n    \"debit_amount\": \"Debit\",\n    \"account_identifier\": \"Account\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/imports/bank-statements/{{test_bank_batch_id}}/confirm-mapping/", "host": ["{{base_url}}"], "path": ["api","v1","imports","bank-statements","{{test_bank_batch_id}}","confirm-mapping",""] },
+            "description": "Map detected CSV columns to canonical field names.\nRequired keys in mapping: transaction_date, description, credit_amount, debit_amount, account_identifier\nValues should be the actual column headers from your CSV file (shown in Step 1 response as detected_columns).\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - List Reconciliation Matches",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/reconciliation/", "host": ["{{base_url}}"], "path": ["api","v1","reconciliation",""] },
+            "description": "List pending (suggested) reconciliation matches. Returns up to 100, sorted by confidence score.\nX-Organization-ID: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns array', () => pm.expect(body).to.be.an('array'));",
+                  "if (body.length > 0) {",
+                  "    pm.environment.set('test_recon_match_id', body[0].id);",
+                  "    console.log('Match ID saved: ' + body[0].id);",
+                  "    console.log('Confidence: ' + body[0].confidence_score);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "04 - Confirm Reconciliation Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/reconciliation/{{test_recon_match_id}}/confirm/", "host": ["{{base_url}}"], "path": ["api","v1","reconciliation","{{test_recon_match_id}}","confirm",""] },
+            "description": "Confirm a suggested match. This CREATES a Payment + PaymentAllocation record automatically.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - Reject Reconciliation Match",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{base_url}}/api/v1/reconciliation/{{test_recon_match_id}}/reject/", "host": ["{{base_url}}"], "path": ["api","v1","reconciliation","{{test_recon_match_id}}","reject",""] }
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "14 - Invoice Imports",
+      "description": "Bulk invoice import via CSV or XLSX. Three-step process: upload → review → commit.",
+      "item": [
+
+        {
+          "name": "01 - Download CSV Template",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/imports/invoice-template/csv/", "host": ["{{base_url}}"], "path": ["api","v1","imports","invoice-template","csv",""] },
+            "description": "Download the CSV import template. Use 'Send and Download' in Postman.\nColumns: invoice_number, invoice_date, due_date, customer_name, subtotal, discount, tax, total, currency, notes"
+          },
+          "response": []
+        },
+
+        {
+          "name": "02 - Download XLSX Template",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/imports/invoice-template/xlsx/", "host": ["{{base_url}}"], "path": ["api","v1","imports","invoice-template","xlsx",""] },
+            "description": "Download the XLSX import template. Use 'Send and Download' in Postman."
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - Upload Invoice File",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select a CSV or XLSX invoice file (max 10 MB)" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/api/v1/imports/invoices/", "host": ["{{base_url}}"], "path": ["api","v1","imports","invoices",""] },
+            "description": "Step 1: Upload. Returns batch_id + preview of validated rows.\nRow status values: valid, error, duplicate\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.batch_id) {",
+                  "        pm.environment.set('test_import_batch_id', body.batch_id);",
+                  "        console.log('Import batch ID: ' + body.batch_id);",
+                  "        console.log('Summary: ' + JSON.stringify(body.summary));",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "04 - Get Batch Status & Preview",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/imports/invoices/{{test_import_batch_id}}/", "host": ["{{base_url}}"], "path": ["api","v1","imports","invoices","{{test_import_batch_id}}",""] },
+            "description": "Step 2: Review. Poll batch status and row-level validation results.\nX-Organization-ID: REQUIRED"
+          },
+          "response": []
+        },
+
+        {
+          "name": "05 - Commit Import Batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "X-Organization-ID", "value": "{{organization_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"row_ids\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/api/v1/imports/invoices/{{test_import_batch_id}}/commit/", "host": ["{{base_url}}"], "path": ["api","v1","imports","invoices","{{test_import_batch_id}}","commit",""] },
+            "description": "Step 3: Commit. Supply the UUID list of valid row IDs to create as invoices.\nrow_ids: array of row UUIDs (get these from the batch detail response).\nOnly rows with status=valid are committed; others are skipped.\nX-Organization-ID: REQUIRED\nX-CSRFToken: REQUIRED"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "15 - Exports",
+      "description": "CSV file download endpoints. These return binary CSV streams, not JSON. Use 'Send and Download' in Postman.",
+      "item": [
+
+        {
+          "name": "01 - Export Invoices (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exports/invoices/?org={{organization_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","exports","invoices",""],
+              "query": [{ "key": "org", "value": "{{organization_id}}" }]
+            },
+            "description": "Download all invoices as CSV.\nColumns: invoice_number, customer_name, invoice_date, due_date, status, subtotal, discount, tax, total, cgst, sgst, igst, paid, outstanding, currency\nUse 'Send and Download' in Postman to save the CSV file.\nX-Organization-ID: REQUIRED (also as query param)"
+          },
+          "response": []
+        },
+
+        {
+          "name": "02 - Export Customers (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exports/customers/?org={{organization_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","exports","customers",""],
+              "query": [{ "key": "org", "value": "{{organization_id}}" }]
+            },
+            "description": "Download all customers as CSV.\nColumns: name, contact_name, email, phone, gstin, payment_terms_days, active, created_at\nX-Organization-ID: REQUIRED (also as query param)"
+          },
+          "response": []
+        },
+
+        {
+          "name": "03 - Export Payments (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exports/payments/?org={{organization_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","exports","payments",""],
+              "query": [{ "key": "org", "value": "{{organization_id}}" }]
+            },
+            "description": "Download all payments as CSV.\nColumns: payment_date, customer_name, amount, currency, method, reference, allocated_to_invoices, created_at\nX-Organization-ID: REQUIRED (also as query param)"
+          },
+          "response": []
+        }
+
+      ]
+    },
+
+    {
+      "name": "16 - Audit Log",
+      "description": "Immutable audit trail of all write operations.",
+      "item": [
+        {
+          "name": "01 - List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/audit-logs/", "host": ["{{base_url}}"], "path": ["api","v1","audit-logs",""] },
+            "description": "Returns the last 200 audit log entries for this organization.\nNo filtering or pagination — hard-capped at 200.\nX-Organization-ID: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "17 - Subscriptions",
+      "description": "Subscription plan status. This is a stub — plans exist in the DB but no payment gateway is wired.",
+      "item": [
+        {
+          "name": "01 - Get Subscription Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Organization-ID", "value": "{{organization_id}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/subscriptions/", "host": ["{{base_url}}"], "path": ["api","v1","subscriptions",""] },
+            "description": "Returns current subscription status and list of available plans.\nX-Organization-ID: REQUIRED"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Has available_plans', () => pm.expect(body).to.have.property('available_plans'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "18 - Platform Admin (Superuser Only)",
+      "description": "These endpoints require Django staff or superuser account. Regular org users will get 403.",
+      "item": [
+        {
+          "name": "01 - List All Organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/orgs/", "host": ["{{base_url}}"], "path": ["api","v1","admin","orgs",""] },
+            "description": "List last 100 organizations across the platform. REQUIRES Django staff/superuser account."
+          },
+          "response": []
+        },
+        {
+          "name": "02 - List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/users/", "host": ["{{base_url}}"], "path": ["api","v1","admin","users",""] },
+            "description": "List last 200 users. REQUIRES Django staff/superuser account."
+          },
+          "response": []
+        },
+        {
+          "name": "03 - Platform-Wide Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/v1/admin/audit-logs/", "host": ["{{base_url}}"], "path": ["api","v1","admin","audit-logs",""] },
+            "description": "Audit log across ALL organizations. REQUIRES Django staff/superuser account."
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "19 - OpenAPI Schema",
+      "description": "Auto-generated API schema via drf-spectacular. No auth required.",
+      "item": [
+        {
+          "name": "01 - OpenAPI Schema (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/schema/", "host": ["{{base_url}}"], "path": ["api","schema",""] },
+            "description": "Returns the full OpenAPI 3.0 schema as JSON. No authentication required."
+          },
+          "response": []
+        },
+        {
+          "name": "02 - Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api/schema/swagger-ui/", "host": ["{{base_url}}"], "path": ["api","schema","swagger-ui",""] },
+            "description": "Open in browser for interactive Swagger docs. No authentication required."
+          },
+          "response": []
+        }
+      ]
+    }
+
+  ]
+}
