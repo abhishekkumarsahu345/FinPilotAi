@@ -68,6 +68,39 @@ export type Notification = {
   id: string; event_type: string; entity_type: string; entity_id: string
   payload: Record<string, unknown>; read: boolean; created_at: string
 }
+export type ReminderSchedule = {
+  id: string; name: string; enabled: boolean
+  send_hour_start: number; send_hour_end: number
+  skip_weekdays: number[]; excluded_customer_ids: string[]
+  step_count: number; created_at: string; updated_at: string
+}
+export type ReminderStep = {
+  id: string; schedule: string; step_number: number
+  offset_from_issue: number | null; offset_from_due: number | null
+  tone: 'issue' | 'friendly' | 'gentle' | 'serious'
+  tone_display: string; template: string; template_name: string
+  approval_mode: 'manual' | 'automatic'; approval_mode_display: string
+  enabled: boolean; is_final_notice: boolean; created_at: string
+}
+export type ReminderJob = {
+  id: string; schedule: string; schedule_name: string
+  step: string; step_number: number; step_tone: string
+  invoice: string; invoice_number: string
+  customer: string; customer_name: string; customer_email: string
+  scheduled_date: string
+  status: 'proposed' | 'approved' | 'scheduled' | 'dispatched' | 'blocked' | 'rejected' | 'failed' | 'skipped'
+  status_display: string
+  snapshot_total_minor: number; snapshot_paid_minor: number; snapshot_outstanding_minor: number
+  snapshot_due_date: string; snapshot_days_overdue: number
+  current_outstanding_minor: number
+  sent_total_minor?: number; sent_paid_minor?: number; sent_outstanding_minor?: number
+  approved_custom_intro: string; approved_custom_closing: string
+  needs_manual_followup: boolean
+  dispatched_at: string | null; block_reason: string
+  created_at: string
+  email_preview_subject?: string; email_preview_html?: string
+}
+
 export type DashboardData = {
   currency: string; as_of: string; outstanding_minor: number
   overdue_minor: number; due_today_minor: number; due_next_7_days_minor: number
@@ -312,6 +345,45 @@ export const api = {
   // forecast: (orgId: string, period: 7 | 30 | 60, timing = 'due_date') =>
   //   request<ForecastData>('GET', `/api/v1/forecasts/?period=${period}&timing=${timing}`, undefined, orgId),
 
+
+  // Reminders
+  reminderSchedules: (orgId: string) =>
+    request<{ results: ReminderSchedule[]; count: number }>('GET', '/api/v1/reminders/schedules/', undefined, orgId),
+  createReminderSchedule: (orgId: string, data: Partial<ReminderSchedule>) =>
+    request<ReminderSchedule>('POST', '/api/v1/reminders/schedules/', data, orgId),
+  updateReminderSchedule: (orgId: string, id: string, data: Partial<ReminderSchedule>) =>
+    request<ReminderSchedule>('PATCH', `/api/v1/reminders/schedules/${id}/`, data, orgId),
+  deleteReminderSchedule: (orgId: string, id: string) =>
+    request<void>('DELETE', `/api/v1/reminders/schedules/${id}/`, undefined, orgId),
+
+  reminderSteps: (orgId: string, scheduleId?: string) =>
+    request<{ results: ReminderStep[]; count: number }>('GET', `/api/v1/reminders/steps/${scheduleId ? '?schedule=' + scheduleId : ''}`, undefined, orgId),
+  createReminderStep: (orgId: string, data: Partial<ReminderStep>) =>
+    request<ReminderStep>('POST', '/api/v1/reminders/steps/', data, orgId),
+  updateReminderStep: (orgId: string, id: string, data: Partial<ReminderStep>) =>
+    request<ReminderStep>('PATCH', `/api/v1/reminders/steps/${id}/`, data, orgId),
+  deleteReminderStep: (orgId: string, id: string) =>
+    request<void>('DELETE', `/api/v1/reminders/steps/${id}/`, undefined, orgId),
+
+  reminderJobs: (orgId: string, filters?: { status?: string; invoice?: string; include_preview?: boolean }) => {
+    const params = new URLSearchParams()
+    if (filters?.status) params.set('status', filters.status)
+    if (filters?.invoice) params.set('invoice', filters.invoice)
+    if (filters?.include_preview) params.set('include_preview', 'true')
+    const query = params.toString()
+    return request<{ results: ReminderJob[]; count: number }>('GET', `/api/v1/reminders/jobs-v2/${query ? '?' + query : ''}`, undefined, orgId)
+  },
+  getReminderJobWithPreview: (orgId: string, id: string) =>
+    request<ReminderJob>('GET', `/api/v1/reminders/jobs-v2/${id}/?include_preview=true`, undefined, orgId),
+  approveReminderJob: (orgId: string, id: string, customMessages?: { custom_intro?: string; custom_closing?: string }) =>
+    request<{ detail: string; job_id: string }>('POST', `/api/v1/reminders/jobs-v2/${id}/approve/`, customMessages || {}, orgId),
+  rejectReminderJob: (orgId: string, id: string) =>
+    request<{ detail: string }>('POST', `/api/v1/reminders/jobs-v2/${id}/reject/`, {}, orgId),
+  markForFollowup: (orgId: string, id: string) =>
+    request<{ detail: string }>('POST', `/api/v1/reminders/jobs-v2/${id}/mark_for_followup/`, {}, orgId),
+
+  seedDefaultReminders: (orgId: string) =>
+    request<{ message: string; schedule_id: string; steps_created: number }>('POST', '/api/v1/reminders/seed-defaults/', {}, orgId),
   // AI Assistant 
   ask: (orgId: string, question: string, session_id?: string) =>  // The part inside < > is TypeScript's generic type.
   //                                                            //It tells TypeScript what kind of response we expect:

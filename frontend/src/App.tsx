@@ -1,4 +1,4 @@
-// FinPilot AI - Invoice Module Improved
+Ôªø// FinPilot AI - Invoice Module Improved
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
@@ -154,7 +154,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
       if (org.length < 2) { setError('Business name must be at least 2 characters.'); return }
     }
 
-    // Forgot password ó UI only, no backend endpoint
+    // Forgot password ‚Äî UI only, no backend endpoint
     if (mode === 'forgot') {
       setBusy(true)
       await new Promise(r => setTimeout(r, 800)) // brief simulated delay
@@ -286,7 +286,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
                         id="fp-password"
                         name="password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder={mode === 'login' ? 'ïïïïïïïï' : 'Minimum 8 characters'}
+                        placeholder={mode === 'login' ? '‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢' : 'Minimum 8 characters'}
                         required
                         autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       />
@@ -404,7 +404,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
               </p>
             )}
 
-            <div className="auth-left-foot">© FinPilot AI 2026</div>
+            <div className="auth-left-foot">¬© FinPilot AI 2026</div>
           </div>
 
           {/* -- RIGHT: artwork column -- */}
@@ -565,7 +565,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             <span>COMPLIANCE &amp; SECURITY STANDARDS</span>
-            <p>256-bit bank-grade encryption ∑ RBI Fair Practices Framework ∑ ISO 27001 &amp; SOC2 Type II Certified</p>
+            <p>256-bit bank-grade encryption ¬∑ RBI Fair Practices Framework ¬∑ ISO 27001 &amp; SOC2 Type II Certified</p>
           </div>
         </aside>
 
@@ -575,7 +575,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
           <div className="org-progress">
             <div className="org-progress-label">
               <span className="org-step-done">STEP 2 OF 3</span>
-              <span className="org-step-next">Organization Setup ∑ Next: Dashboard</span>
+              <span className="org-step-next">Organization Setup ¬∑ Next: Dashboard</span>
             </div>
             <div className="org-progress-bars">
               <div className="org-progress-bar org-progress-done" />
@@ -767,7 +767,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
         {/* Header with Invoice Number */}
         <div className="invoice-modern-header">
           <div className="invoice-modern-header-left">
-            <div className="invoice-modern-brand">FinPilot AI ñ Customer Invoice</div>
+            <div className="invoice-modern-brand">FinPilot AI ‚Äì Customer Invoice</div>
             <h1 className="invoice-modern-number">{invoice.invoice_number}</h1>
           </div>
           <div className="invoice-modern-header-right">
@@ -786,7 +786,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
           <div className="invoice-modern-info-grid">
             <div className="invoice-modern-info-col">
               <div className="invoice-modern-label">CUSTOMER</div>
-              <div className="invoice-modern-value-large">{cust?.name || 'ó'}</div>
+              <div className="invoice-modern-value-large">{cust?.name || '‚Äî'}</div>
               {cust?.billing_address && <div className="invoice-modern-address">{cust.billing_address}</div>}
             </div>
             
@@ -1142,7 +1142,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
           <div className="invoice-form-clean-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'SavingÖ' : isEdit ? 'Save' : 'Create'}
+              {busy ? 'Saving‚Ä¶' : isEdit ? 'Save' : 'Create'}
             </button>
           </div>
         </form>
@@ -1178,7 +1178,7 @@ function CustomerModal({ orgId, onClose, onCreated }: { orgId: string; onClose: 
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'AddingÖ' : 'Add customer'}</button>
+            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Adding‚Ä¶' : 'Add customer'}</button>
           </div>
         </form>
       </section>
@@ -1235,7 +1235,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
               <select name="invoice">
                 <option value="">No allocation</option>
                 {custInvoices.map(i => (
-                  <option key={i.id} value={i.id}>{i.invoice_number} ó {money(i.balance_minor)} outstanding</option>
+                  <option key={i.id} value={i.id}>{i.invoice_number} ‚Äî {money(i.balance_minor)} outstanding</option>
                 ))}
               </select>
             </label>
@@ -1258,7 +1258,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'RecordingÖ' : 'Record payment'}</button>
+            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Recording‚Ä¶' : 'Record payment'}</button>
           </div>
         </form>
       </section>
@@ -1433,16 +1433,16 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
       {tab === 'products' && (
         <div className="table-wrap">
           <div style={{ padding: '12px 20px' }}>
-            <div className="search"><Search size={15} /><input placeholder="Search productsÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+            <div className="search"><Search size={15} /><input placeholder="Search products‚Ä¶" value={query} onChange={e => setQuery(e.target.value)} /></div>
           </div>
           <table>
             <thead><tr><th>PRODUCT</th><th>SKU</th><th>HSN/SAC</th><th>PRICE</th><th>DEFAULT GST</th><th>STATUS</th><th></th></tr></thead>
             <tbody>
               {filteredProducts.map(p => (
                 <tr key={p.id}>
-                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} ∑ {p.description?.slice(0, 40)}</div></td>
-                  <td>{p.sku || 'ó'}</td>
-                  <td>{p.hsn_sac || 'ó'}</td>
+                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} ¬∑ {p.description?.slice(0, 40)}</div></td>
+                  <td>{p.sku || '‚Äî'}</td>
+                  <td>{p.hsn_sac || '‚Äî'}</td>
                   <td className="amount">{money(p.price_minor)}</td>
                   <td>{p.default_gst_rate_bps ? `${p.default_gst_rate_name} (${p.default_gst_rate_bps / 100}%)` : 'No GST'}</td>
                   <td>{p.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
@@ -1468,7 +1468,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
                   <td className="strong">{r.name}</td>
                   <td className="amount">{r.rate_percent}</td>
                   <td style={{ fontSize: 10 }}>{r.preview}</td>
-                  <td>{r.in_use ? <span className="status issued">Yes</span> : 'ó'}</td>
+                  <td>{r.in_use ? <span className="status issued">Yes</span> : '‚Äî'}</td>
                   <td>{r.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="icon-btn" title="Edit" onClick={() => onOpenRateModal(r)}><Pencil size={14} /></button>
@@ -1480,7 +1480,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
           </table>
           {gstRates.length === 0 && <div className="empty">No GST rates yet. Add your first rate.</div>}
           {gstRates.some(r => r.in_use && !r.active) && (
-            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices ó they are preserved as snapshots.</div>
+            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices ‚Äî they are preserved as snapshots.</div>
           )}
         </div>
       )}
@@ -1489,6 +1489,585 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
 }
 
 // -- Main App ---------------------------------------------------------------
+
+
+
+// -- Reminders Page Component --
+
+// ========== REMINDERS PAGE COMPONENT ==========
+
+function RemindersPage({ org }: { org: Org }) {
+  const [view, setView] = useState<'pending' | 'sent' | 'failed' | 'schedules'>('pending')
+  const [schedules, setSchedules] = useState<ReminderSchedule[]>([])
+  const [steps, setSteps] = useState<ReminderStep[]>([])
+  const [jobs, setJobs] = useState<ReminderJob[]>([])
+  const [selectedSchedule, setSelectedSchedule] = useState<ReminderSchedule | null>(null)
+  const [previewJob, setPreviewJob] = useState<ReminderJob | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  // Modal states
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [showStepModal, setShowStepModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<ReminderSchedule | null>(null)
+  const [editingStep, setEditingStep] = useState<ReminderStep | null>(null)
+
+  // Approval form state
+  const [customIntro, setCustomIntro] = useState('')
+  const [customClosing, setCustomClosing] = useState('')
+
+  // Load data
+  const loadSchedules = useCallback(async () => {
+    try {
+      const data = await api.reminderSchedules(org.id)
+      setSchedules(data.results)
+    } catch (err) {
+      console.error('Failed to load schedules:', err)
+    }
+  }, [org.id])
+
+  const loadSteps = useCallback(async (scheduleId?: string) => {
+    try {
+      const data = await api.reminderSteps(org.id, scheduleId)
+      setSteps(data.results)
+    } catch (err) {
+      console.error('Failed to load steps:', err)
+    }
+  }, [org.id])
+
+  const loadJobs = useCallback(async (status?: string) => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await api.reminderJobs(org.id, { status, include_preview: false })
+      setJobs(data.results)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load reminders')
+    } finally {
+      setLoading(false)
+    }
+  }, [org.id])
+
+  // Initial load
+  useEffect(() => {
+    loadSchedules()
+    if (view === 'pending') loadJobs('proposed')
+    else if (view === 'sent') loadJobs('dispatched')
+    else if (view === 'failed') loadJobs('failed')
+  }, [view, loadSchedules, loadJobs])
+
+  // Seed default setup
+  const handleSeedDefaults = async () => {
+    if (!confirm('Create default 4-step reminder schedule? This will create:\n- Invoice Issue Notification\n- 7 days before due reminder\n- 3 days after due reminder\n- 15 days after due final notice')) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const result = await api.seedDefaultReminders(org.id)
+      setSuccess(`${result.message} (${result.steps_created} steps created)`)
+      await loadSchedules()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to seed defaults')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Preview reminder
+  const handlePreview = async (job: ReminderJob) => {
+    setLoading(true)
+    try {
+      const fullJob = await api.getReminderJobWithPreview(org.id, job.id)
+      setPreviewJob(fullJob)
+      setCustomIntro(fullJob.approved_custom_intro || '')
+      setCustomClosing(fullJob.approved_custom_closing || '')
+      setShowPreviewModal(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load preview')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Approve reminder
+  const handleApprove = async () => {
+    if (!previewJob) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.approveReminderJob(org.id, previewJob.id, {
+        custom_intro: customIntro,
+        custom_closing: customClosing,
+      })
+      setSuccess('Reminder approved and queued for sending')
+      setShowPreviewModal(false)
+      setPreviewJob(null)
+      await loadJobs(view === 'pending' ? 'proposed' : view === 'sent' ? 'dispatched' : 'failed')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to approve reminder')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Reject reminder
+  const handleReject = async (jobId: string) => {
+    if (!confirm('Reject this reminder? It will not be sent.')) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.rejectReminderJob(org.id, jobId)
+      setSuccess('Reminder rejected')
+      await loadJobs('proposed')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to reject reminder')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Count by status
+  const pendingCount = jobs.filter(j => j.status === 'proposed').length
+  const sentTodayCount = jobs.filter(j => j.status === 'dispatched' && j.dispatched_at?.startsWith(new Date().toISOString().split('T')[0])).length
+  const failedCount = jobs.filter(j => j.status === 'failed').length
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600 }}>Payment Reminders</h1>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {schedules.length === 0 && (
+            <button onClick={handleSeedDefaults} disabled={loading} style={{
+              padding: '10px 20px', background: '#3b82f6', color: 'white', border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+            }}>
+              Set Up Reminders
+            </button>
+          )}
+          <button onClick={() => { setEditingSchedule(null); setShowScheduleModal(true) }} style={{
+            padding: '10px 20px', background: '#10b981', color: 'white', border: 'none',
+            borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+          }}>
+            <Plus size={16} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+            New Schedule
+          </button>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {error && (
+        <div style={{ padding: '12px', background: '#fee', border: '1px solid #fcc', borderRadius: '6px', marginBottom: '16px', color: '#c00' }}>
+          {error}
+          <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={18} />
+          </button>
+        </div>
+      )}
+      {success && (
+        <div style={{ padding: '12px', background: '#efe', border: '1px solid #cfc', borderRadius: '6px', marginBottom: '16px', color: '#060' }}>
+          {success}
+          <button onClick={() => setSuccess('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* View Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '2px solid #e5e7eb' }}>
+        <button onClick={() => setView('pending')} style={{
+          padding: '12px 24px', background: view === 'pending' ? '#fff' : 'transparent',
+          border: 'none', borderBottom: view === 'pending' ? '3px solid #3b82f6' : '3px solid transparent',
+          cursor: 'pointer', fontWeight: 500, color: view === 'pending' ? '#3b82f6' : '#6b7280'
+        }}>
+          Pending Approvals {pendingCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: '#fee', borderRadius: '12px', fontSize: '12px', color: '#c00' }}>{pendingCount}</span>}
+        </button>
+        <button onClick={() => setView('sent')} style={{
+          padding: '12px 24px', background: view === 'sent' ? '#fff' : 'transparent',
+          border: 'none', borderBottom: view === 'sent' ? '3px solid #3b82f6' : '3px solid transparent',
+          cursor: 'pointer', fontWeight: 500, color: view === 'sent' ? '#3b82f6' : '#6b7280'
+        }}>
+          Sent History
+        </button>
+        <button onClick={() => setView('failed')} style={{
+          padding: '12px 24px', background: view === 'failed' ? '#fff' : 'transparent',
+          border: 'none', borderBottom: view === 'failed' ? '3px solid #3b82f6' : '3px solid transparent',
+          cursor: 'pointer', fontWeight: 500, color: view === 'failed' ? '#3b82f6' : '#6b7280'
+        }}>
+          Failed {failedCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: '#fee', borderRadius: '12px', fontSize: '12px', color: '#c00' }}>{failedCount}</span>}
+        </button>
+        <button onClick={() => setView('schedules')} style={{
+          padding: '12px 24px', background: view === 'schedules' ? '#fff' : 'transparent',
+          border: 'none', borderBottom: view === 'schedules' ? '3px solid #3b82f6' : '3px solid transparent',
+          cursor: 'pointer', fontWeight: 500, color: view === 'schedules' ? '#3b82f6' : '#6b7280'
+        }}>
+          Schedules ({schedules.length})
+        </button>
+      </div>
+
+      {/* Content */}
+      {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>Loading...</div>}
+
+      {!loading && view === 'pending' && (
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Awaiting Your Approval</h2>
+          {jobs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+              <Bell size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+              <div>No pending reminders to approve</div>
+            </div>
+          ) : (
+            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <tr>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
+                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Outstanding</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Due Date</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Step</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Scheduled</th>
+                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map(job => (
+                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
+                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600, color: job.snapshot_days_overdue > 0 ? '#dc2626' : '#059669' }}>
+                        {money(job.current_outstanding_minor || job.snapshot_outstanding_minor)}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        {fmtDate(job.snapshot_due_date)}
+                        {job.snapshot_days_overdue > 0 && (
+                          <span style={{ marginLeft: '8px', fontSize: '12px', color: '#dc2626' }}>
+                            ({job.snapshot_days_overdue} days overdue)
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <span style={{
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 500,
+                          background: job.step_tone === 'issue' ? '#dbeafe' : job.step_tone === 'friendly' ? '#d1fae5' : job.step_tone === 'gentle' ? '#fef3c7' : '#fee2e2',
+                          color: job.step_tone === 'issue' ? '#1e40af' : job.step_tone === 'friendly' ? '#065f46' : job.step_tone === 'gentle' ? '#92400e' : '#991b1b'
+                        }}>
+                          Step {job.step_number}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px' }}>{fmtDate(job.scheduled_date)}</td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>
+                        <button onClick={() => handlePreview(job)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '8px', fontSize: '13px' }}>
+                          Preview & Approve
+                        </button>
+                        <button onClick={() => handleReject(job.id)} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && view === 'sent' && (
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Sent Reminders</h2>
+          {jobs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>No sent reminders yet</div>
+          ) : (
+            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <tr>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Sent At</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
+                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Amount Sent For</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Step</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map(job => (
+                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '12px' }}>{job.dispatched_at ? new Date(job.dispatched_at).toLocaleString('en-IN') : '√¢‚Ç¨‚Äù'}</td>
+                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
+                      <td style={{ padding: '12px', textAlign: 'right' }}>{money(job.sent_outstanding_minor || job.snapshot_outstanding_minor)}</td>
+                      <td style={{ padding: '12px' }}>Step {job.step_number}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && view === 'failed' && (
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#dc2626' }}>Failed Deliveries</h2>
+          {jobs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+              <CheckCircle size={48} style={{ color: '#10b981', marginBottom: '16px' }} />
+              <div>No failed deliveries</div>
+            </div>
+          ) : (
+            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <tr>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Error</th>
+                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Retry Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map(job => (
+                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
+                      <td style={{ padding: '12px', color: '#dc2626', fontSize: '13px' }}>{job.block_reason || 'Unknown error'}</td>
+                      <td style={{ padding: '12px' }}>{job.retry_count || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!loading && view === 'schedules' && (
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Reminder Schedules</h2>
+          {schedules.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <div style={{ marginBottom: '16px', color: '#6b7280' }}>No schedules configured yet</div>
+              <button onClick={handleSeedDefaults} style={{
+                padding: '12px 24px', background: '#3b82f6', color: 'white', border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+              }}>
+                Create Default 4-Step Schedule
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {schedules.map(schedule => (
+                <div key={schedule.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{schedule.name}</h3>
+                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
+                        {schedule.step_count} steps √¢‚Ç¨¬¢ Business hours: {schedule.send_hour_start}:00 - {schedule.send_hour_end}:00
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 500,
+                      background: schedule.enabled ? '#d1fae5' : '#fee2e2',
+                      color: schedule.enabled ? '#065f46' : '#991b1b'
+                    }}>
+                      {schedule.enabled ? 'Active' : 'Disabled'}
+                    </div>
+                  </div>
+                  <button onClick={() => { setSelectedSchedule(schedule); loadSteps(schedule.id) }} style={{
+                    padding: '8px 16px', background: '#f3f4f6', border: 'none',
+                    borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px'
+                  }}>
+                    View Steps √¢‚Ä†‚Äô
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Schedule Steps Panel */}
+          {selectedSchedule && (
+            <div style={{ marginTop: '24px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Steps for: {selectedSchedule.name}</h3>
+                <button onClick={() => setSelectedSchedule(null)} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280'
+                }}>
+                  <X size={20} />
+                </button>
+              </div>
+              {steps.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>No steps configured</div>
+              ) : (
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {steps.map(step => (
+                    <div key={step.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                            Step {step.step_number}: {step.tone_display}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                            Trigger: {step.offset_from_due !== null
+                              ? `${step.offset_from_due} days ${step.offset_from_due < 0 ? 'before' : 'after'} due date`
+                              : `${step.offset_from_issue} days from invoice issue`}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
+                            Approval: {step.approval_mode_display}
+                            {step.is_final_notice && <span style={{ marginLeft: '8px', color: '#dc2626', fontWeight: 500 }}>(Final Notice)</span>}
+                          </div>
+                        </div>
+                        <div style={{
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 500,
+                          background: step.enabled ? '#d1fae5' : '#fee2e2',
+                          color: step.enabled ? '#065f46' : '#991b1b'
+                        }}>
+                          {step.enabled ? 'Enabled' : 'Disabled'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Email Preview Modal */}
+      {showPreviewModal && previewJob && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center',
+          alignItems: 'center', zIndex: 1000, padding: '20px'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '8px', maxWidth: '900px',
+            width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                Preview & Approve Reminder: {previewJob.invoice_number}
+              </h2>
+              <button onClick={() => { setShowPreviewModal(false); setPreviewJob(null) }} style={{
+                background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280'
+              }}>
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+              {/* Invoice Info */}
+              <div style={{ background: '#f9fafb', padding: '16px', borderRadius: '6px', marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', fontSize: '14px' }}>
+                  <div>
+                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Customer</div>
+                    <div style={{ fontWeight: 600 }}>{previewJob.customer_name}</div>
+                    <div style={{ fontSize: '13px', color: '#6b7280' }}>{previewJob.customer_email}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Outstanding</div>
+                    <div style={{ fontWeight: 600, fontSize: '18px', color: previewJob.snapshot_days_overdue > 0 ? '#dc2626' : '#059669' }}>
+                      {money(previewJob.current_outstanding_minor || previewJob.snapshot_outstanding_minor)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Due Date</div>
+                    <div style={{ fontWeight: 600 }}>{fmtDate(previewJob.snapshot_due_date)}</div>
+                    {previewJob.snapshot_days_overdue > 0 && (
+                      <div style={{ fontSize: '13px', color: '#dc2626' }}>{previewJob.snapshot_days_overdue} days overdue</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Messages */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                  Custom Introduction (optional)
+                </label>
+                <textarea
+                  value={customIntro}
+                  onChange={e => setCustomIntro(e.target.value)}
+                  placeholder="Add a personal message at the beginning of the email..."
+                  style={{
+                    width: '100%', padding: '10px', border: '1px solid #e5e7eb',
+                    borderRadius: '6px', fontSize: '14px', resize: 'vertical', minHeight: '60px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                  Custom Closing (optional)
+                </label>
+                <textarea
+                  value={customClosing}
+                  onChange={e => setCustomClosing(e.target.value)}
+                  placeholder="Add a personal message at the end of the email..."
+                  style={{
+                    width: '100%', padding: '10px', border: '1px solid #e5e7eb',
+                    borderRadius: '6px', fontSize: '14px', resize: 'vertical', minHeight: '60px'
+                  }}
+                />
+              </div>
+
+              {/* Email Preview */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontWeight: 500, marginBottom: '8px' }}>Email Subject:</div>
+                <div style={{ padding: '10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}>
+                  {previewJob.email_preview_subject || `Payment Reminder: Invoice ${previewJob.invoice_number}`}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 500, marginBottom: '8px' }}>Email Body Preview:</div>
+                <div style={{
+                  border: '1px solid #e5e7eb', borderRadius: '6px', padding: '20px',
+                  background: '#f9fafb', maxHeight: '400px', overflowY: 'auto'
+                }}>
+                  {previewJob.email_preview_html ? (
+                    <iframe
+                      srcDoc={previewJob.email_preview_html}
+                      style={{ width: '100%', height: '400px', border: 'none', background: 'white' }}
+                      title="Email Preview"
+                    />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                      Email preview not available
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '20px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => { setShowPreviewModal(false); setPreviewJob(null) }} style={{
+                padding: '10px 20px', background: '#f3f4f6', border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+              }}>
+                Cancel
+              </button>
+              <button onClick={handleApprove} disabled={loading} style={{
+                padding: '10px 20px', background: '#10b981', color: 'white', border: 'none',
+                borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 500,
+                opacity: loading ? 0.5 : 1
+              }}>
+                {loading ? 'Approving...' : 'Approve & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function App() {
   console.log('?? [TEST] FinPilot App is running! If you see this, console is working.');
@@ -1520,7 +2099,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [gstRates, setGstRates] = useState<GSTRate[]>([])
   const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
-  // FORECAST DISABLED ó uncomment to re-enable
+  // FORECAST DISABLED ‚Äî uncomment to re-enable
   // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -1614,7 +2193,7 @@ export default function App() {
     setCustomers([])
     setPayments([])
     setAging(null)
-    // FORECAST DISABLED ó uncomment to re-enable
+    // FORECAST DISABLED ‚Äî uncomment to re-enable
     // setForecast(null)
     setNotifications([])
     setUnreadCount(0)
@@ -1627,7 +2206,7 @@ export default function App() {
     try {
       await api.logout(org?.id)
     } catch {
-      // Proceed even if backend call fails ó clear client state regardless
+      // Proceed even if backend call fails ‚Äî clear client state regardless
     }
     broadcastLogout()
     clearAuth()
@@ -1646,7 +2225,7 @@ export default function App() {
   useEffect(() => {
     const unsub = subscribeLogoutChannel(() => {
       clearAuth()
-      // No toast here ó only the initiating tab shows "Logged out successfully"
+      // No toast here ‚Äî only the initiating tab shows "Logged out successfully"
     })
     return unsub
   }, [clearAuth])
@@ -1702,10 +2281,10 @@ export default function App() {
     { name: 'Products', icon: Package },
     { name: 'Payments', icon: Wallet },
     { name: 'Aging report', icon: Clock3 },
-    { name: 'Reminders', icon: Bell, soon: true },
-    // RECONCILIATION DISABLED ó uncomment to re-enable
+    { name: 'Reminders', icon: Bell },
+    // RECONCILIATION DISABLED ‚Äî uncomment to re-enable
     // { name: 'Reconciliation', icon: GitMerge, soon: true },
-    // FORECAST DISABLED ó uncomment to re-enable
+    // FORECAST DISABLED ‚Äî uncomment to re-enable
     // { name: 'Forecast', icon: TrendingUp },
     { name: 'AI Assistant', icon: Bot },
   ]
@@ -1757,7 +2336,7 @@ export default function App() {
             <Bell size={17} />Notifications
             {unreadCount > 0 && <span className="soon">{unreadCount}</span>}
           </button>
-          {/* AUDIT LOG DISABLED ó uncomment to re-enable */}
+          {/* AUDIT LOG DISABLED ‚Äî uncomment to re-enable */}
           {/* <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button> */}
           <button className="nav-item" onClick={() => setPage('Settings')}><Settings2 size={17} />Settings</button>
           <div className="profile">
@@ -1771,7 +2350,7 @@ export default function App() {
             disabled={loggingOut}
             aria-label="Sign out"
           >
-            <LogOut size={15} /><span>{loggingOut ? 'Signing outÖ' : 'Sign out'}</span>
+            <LogOut size={15} /><span>{loggingOut ? 'Signing out‚Ä¶' : 'Sign out'}</span>
           </button>
         </div>
       </aside>
@@ -1786,7 +2365,7 @@ export default function App() {
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
             <button className="icon-btn" title="Help"><CircleHelp size={18} /></button>
-            {/* Mobile logout ó hidden on desktop via CSS class */}
+            {/* Mobile logout ‚Äî hidden on desktop via CSS class */}
             <button
               className="icon-btn logout-btn-mobile"
               title="Sign out"
@@ -1845,9 +2424,9 @@ export default function App() {
                 <div className="aging-list">
                   {[
                     ['Not yet due', 'not_yet_due', 'blue'],
-                    ['1ñ30 days', 'days_1_30', 'green'],
-                    ['31ñ60 days', 'days_31_60', 'amber'],
-                    ['61ñ90 days', 'days_61_90', 'orange'],
+                    ['1‚Äì30 days', 'days_1_30', 'green'],
+                    ['31‚Äì60 days', 'days_31_60', 'amber'],
+                    ['61‚Äì90 days', 'days_61_90', 'orange'],
                     ['Over 90 days', 'over_90', 'rose'],
                   ].map(([title, key, tone]) => (
                     <div className="aging-row" key={key}>
@@ -1991,7 +2570,7 @@ export default function App() {
                                     <td className="amount">{money(inv.total_minor)}</td>
                                     <td className="amount">{money(inv.paid_minor)}</td>
                                     <td className="amount">{money(inv.balance_minor)}</td>
-                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : 'ó'}</td>
+                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : '‚Äî'}</td>
                                     <td><StatusBadge s={inv.display_status} /></td>
                                   </tr>
                                 )
@@ -2011,7 +2590,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>All invoices</h2><p>{filtered.length} invoices in your workspace</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="Search invoicesÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="Search invoices‚Ä¶" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <select className="status-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">All statuses</option><option value="overdue">Overdue</option><option value="issued">Unpaid</option><option value="partially_paid">Partially Paid</option><option value="paid">Paid</option><option value="draft">Draft</option></select>
                   <a href={`/api/v1/exports/invoices/?`} className="secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 7, padding: '9px 13px', border: '1px solid #e4e9e6', fontSize: 12, fontWeight: 600, color: '#52615a', background: '#fff' }} onClick={e => { e.preventDefault(); fetch(`/api/v1/exports/invoices/`, { credentials: 'include', headers: { 'X-Organization-ID': org.id } }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'invoices.csv'; a.click() }) }}>
                     <Download size={15} /> Export
@@ -2029,7 +2608,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>Customers</h2><p>{customers.length} customers</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="SearchÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="Search‚Ä¶" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <button className="primary" onClick={() => setModal('customer')}><Plus size={16} /> Add customer</button>
                 </div>
               </div>
@@ -2042,8 +2621,8 @@ export default function App() {
                       return (
                         <tr key={c.id}>
                           <td className="strong">{c.name}</td>
-                          <td>{c.email || 'ó'}</td>
-                          <td>{c.phone || 'ó'}</td>
+                          <td>{c.email || '‚Äî'}</td>
+                          <td>{c.phone || '‚Äî'}</td>
                           <td>{open.length}</td>
                           <td className="amount">{money(open.reduce((a, x) => a + x.balance_minor, 0))}</td>
                           <td>{c.opt_out ? <span className="status overdue">Opted out</span> : <span className="status paid">Active</span>}</td>
@@ -2071,12 +2650,12 @@ export default function App() {
                     {payments.map(p => (
                       <tr key={p.id}>
                         <td>{fmtDate(p.payment_date)}</td>
-                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || 'ó'}</td>
+                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || '‚Äî'}</td>
                         <td className="amount">{money(p.amount_minor)}</td>
                         <td>{p.method.replace(/_/g, ' ')}</td>
-                        <td>{p.reference || 'ó'}</td>
-                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || 'ó'}</td>
-                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : 'ó'}</td>
+                        <td>{p.reference || '‚Äî'}</td>
+                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || '‚Äî'}</td>
+                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : '‚Äî'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2090,18 +2669,18 @@ export default function App() {
           {page === 'Aging report' && (
             <div className="panel">
               <div className="panel-head">
-                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} ∑ Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
+                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} ¬∑ Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
                 <button className="secondary" onClick={() => org && api.aging(org.id).then(setAging)}><RefreshCw size={15} /> Refresh</button>
               </div>
               {(['not_yet_due', 'days_1_30', 'days_31_60', 'days_61_90', 'over_90'] as const).map(key => {
                 const rows = aging?.buckets?.[key] || []
                 const labels: Record<string, string> = {
-                  not_yet_due: 'Not yet due', days_1_30: '1ñ30 days overdue',
-                  days_31_60: '31ñ60 days overdue', days_61_90: '61ñ90 days overdue', over_90: 'Over 90 days overdue',
+                  not_yet_due: 'Not yet due', days_1_30: '1‚Äì30 days overdue',
+                  days_31_60: '31‚Äì60 days overdue', days_61_90: '61‚Äì90 days overdue', over_90: 'Over 90 days overdue',
                 }
                 return (
                   <div className="aging-section" key={key}>
-                    <h3>{labels[key]} ó {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
+                    <h3>{labels[key]} ‚Äî {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
                     {rows.length ? rows.map(r => (
                       <div className="aging-invoice" key={r.id}>
                         <b>{r.invoice_number}</b>
@@ -2116,7 +2695,7 @@ export default function App() {
             </div>
           )}
 
-          {/* -- Forecast -- DISABLED ó uncomment to re-enable */}
+          {/* -- Forecast -- DISABLED ‚Äî uncomment to re-enable */}
           {/* {page === 'Forecast' && (
             <ForecastPage orgId={org.id} />
           )} */}
@@ -2125,7 +2704,7 @@ export default function App() {
           {page === 'AI Assistant' && (
             <div className="panel ai-panel">
               <div className="panel-head">
-                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord ó answers are based on your live data.</p></div>
+                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord ‚Äî answers are based on your live data.</p></div>
               </div>
               <div className="ai-body">
                 <div className="ai-disclaimer">
@@ -2140,11 +2719,11 @@ export default function App() {
                     className="ai-input"
                   />
                   <button className="primary" disabled={asking || !question.trim()}>
-                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> ThinkingÖ</> : <><Bot size={15} /> Ask</>}
+                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking‚Ä¶</> : <><Bot size={15} /> Ask</>}
                   </button>
                 </form>
 
-                {/* Error banner ó shown instead of the answer box */}
+                {/* Error banner ‚Äî shown instead of the answer box */}
                 {aiError && (
                   <div className={`ai-error-banner ${aiError.type === 'llm_quota_exceeded' ? 'ai-error-quota' : 'ai-error-generic'}`}>
                     <div className="ai-error-header">
@@ -2159,7 +2738,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Answer box ó only shown on success */}
+                {/* Answer box ‚Äî only shown on success */}
                 {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
@@ -2209,7 +2788,7 @@ export default function App() {
             </div>
           )}
 
-          {/* -- Audit log -- DISABLED ó uncomment to re-enable */}
+          {/* -- Audit log -- DISABLED ‚Äî uncomment to re-enable */}
           {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id} />} */}
 
           {/* -- Settings -- */}
@@ -2238,19 +2817,13 @@ export default function App() {
           )}
 
           {/* -- Reminders / Reconciliation (coming soon) -- */}
-          {/* RECONCILIATION DISABLED ó uncomment `|| page === 'Reconciliation'` to re-enable */}
-          {(page === 'Reminders' /* || page === 'Reconciliation' */) && (
-            <div className="coming">
-              <div className="coming-icon"><Activity size={24} /></div>
-              <div className="eyebrow">ON THE ROADMAP</div>
-              <h2>{page} is being prepared</h2>
-              <p>The backend models, policies, and APIs for {page.toLowerCase()} are fully implemented. The review screens are coming next.</p>
-              <button className="secondary" onClick={() => setPage('Overview')}>Back to overview</button>
-            </div>
+          {/* RECONCILIATION DISABLED ‚Äî uncomment `|| page === 'Reconciliation'` to re-enable */}
+          {(page === 'Reminders' && org) && (
+            <RemindersPage org={org} />
           )}
 
           <footer>
-            FinPilot AI <span>∑</span> INR reporting <span>∑</span> Data as of {dashboard?.as_of || 'today'}
+            FinPilot AI <span>¬∑</span> INR reporting <span>¬∑</span> Data as of {dashboard?.as_of || 'today'}
             <span className="footer-right">Questions? <a href="mailto:support@finpilot.ai">Talk to our team</a></span>
           </footer>
         </section>
@@ -2333,7 +2906,7 @@ export default function App() {
                 aria-busy={loggingOut}
                 data-testid="confirm-logout-btn"
               >
-                <LogOut size={15} />{loggingOut ? 'Signing outÖ' : 'Sign out'}
+                <LogOut size={15} />{loggingOut ? 'Signing out‚Ä¶' : 'Sign out'}
               </button>
             </div>
           </section>
@@ -2343,7 +2916,7 @@ export default function App() {
   )
 }
 
-// -- Forecast page component -- DISABLED ó uncomment to re-enable -------------
+// -- Forecast page component -- DISABLED ‚Äî uncomment to re-enable -------------
 /*
 function ForecastPage({ orgId }: { orgId: string }) {
   const [period, setPeriod] = useState<7 | 30 | 60>(30)
@@ -2359,7 +2932,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
   return (
     <div className="panel">
       <div className="panel-head">
-        <div><h2>Cash inflow forecast</h2><p>Expected receivables ó not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
+        <div><h2>Cash inflow forecast</h2><p>Expected receivables ‚Äî not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
         <div className="toolbar">
           <select value={period} onChange={e => setPeriod(Number(e.target.value) as 7 | 30 | 60)} style={{ height: 34, borderRadius: 7, border: '1px solid #e3e8e5', padding: '0 9px', fontSize: 12 }}>
             <option value={7}>7 days</option>
@@ -2372,7 +2945,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </select>
         </div>
       </div>
-      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecastÖ</div>}
+      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecast‚Ä¶</div>}
       {data && !loading && (
         <div style={{ padding: '0 24px 20px' }}>
           {data.insufficient_history && (
@@ -2392,9 +2965,9 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </div>
           <div style={{ fontSize: 11, color: '#9aa39e', marginTop: 12, borderTop: '1px solid #f0f2f1', paddingTop: 12 }}>
             <strong>Assumptions:</strong>{' '}
-            Timing: {String(data.assumptions.timing_assumption)}{' '}∑{' '}
-            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}∑{' '}
-            Base offset: {String(data.assumptions.base_offset_days)} days{' '}∑{' '}
+            Timing: {String(data.assumptions.timing_assumption)}{' '}¬∑{' '}
+            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}¬∑{' '}
+            Base offset: {String(data.assumptions.base_offset_days)} days{' '}¬∑{' '}
             Optimistic offset: {String(data.assumptions.optimistic_offset_days)} days
           </div>
         </div>
@@ -2404,7 +2977,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
 }
 */
 
-// -- Audit log page -- DISABLED ó uncomment to re-enable ---------------------
+// -- Audit log page -- DISABLED ‚Äî uncomment to re-enable ---------------------
 /*
 function AuditLogPage({ orgId }: { orgId: string }) {
   const [logs, setLogs] = useState<import('./lib/api').AuditLog[]>([])

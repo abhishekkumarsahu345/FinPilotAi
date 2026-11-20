@@ -9,3 +9,7 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.conf.beat_scheduler = "django_celery_beat.schedulers:DatabaseScheduler"
 # Auto-discover tasks in every installed app
 app.autodiscover_tasks()
+
+# Import new reminder task modules explicitly (autodiscover only finds tasks.py)
+app.autodiscover_tasks(['reminders'], related_name='schedule_tasks')
+app.autodiscover_tasks(['reminders'], related_name='dispatch_tasks')
