@@ -100,16 +100,49 @@ class CustomerViewSet(OrgScopedMixin, viewsets.ModelViewSet):
         return Response(data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
-        serializer.validated_data.pop("_warnings", None)
+        warnings = serializer.validated_data.pop("_warnings", [])
+        # Capture old values for audit log
+        instance = self.get_object()
+        old_values = {
+            'name': instance.name,
+            'email': instance.email,
+            'phone': instance.phone,
+            'active': instance.active,
+        }
         customer = serializer.save()
+        # Build change summary
+        changes = []
+        if old_values['name'] != customer.name:
+            changes.append(f"name: '{old_values['name']}' → '{customer.name}'")
+        if old_values['email'] != customer.email:
+            changes.append(f"email: '{old_values['email']}' → '{customer.email}'")
+        if old_values['phone'] != customer.phone:
+            changes.append(f"phone: '{old_values['phone']}' → '{customer.phone}'")
+        if old_values['active'] != customer.active:
+            status = 'activated' if customer.active else 'deactivated'
+            changes.append(f"status: {status}")
+        summary = f"Updated customer {customer.name}" + (f" ({', '.join(changes)})" if changes else "")
         AuditLog.objects.create(
             organization=customer.organization,
             actor=self.request.user,
             action="customer.updated",
             entity_type="customer",
             entity_id=str(customer.id),
-            summary=f"Updated customer {customer.name}",
+            summary=summary[:500],  # Respect max_length
         )
+        # Store warnings for response
+        self._update_warnings = warnings
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        data = serializer.data
+        if hasattr(self, '_update_warnings') and self._update_warnings:
+            data['warnings'] = self._update_warnings
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def opt_out(self, request, pk=None):
