@@ -1,4 +1,4 @@
-// FinPilot AI - Invoice Module Improved
+Ôªø// FinPilot AI - Invoice Module Improved
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
@@ -154,7 +154,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
       if (org.length < 2) { setError('Business name must be at least 2 characters.'); return }
     }
 
-    // Forgot password ó UI only, no backend endpoint
+    // Forgot password ÔøΩ UI only, no backend endpoint
     if (mode === 'forgot') {
       setBusy(true)
       await new Promise(r => setTimeout(r, 800)) // brief simulated delay
@@ -286,7 +286,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
                         id="fp-password"
                         name="password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder={mode === 'login' ? 'ïïïïïïïï' : 'Minimum 8 characters'}
+                        placeholder={mode === 'login' ? 'ÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩ' : 'Minimum 8 characters'}
                         required
                         autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       />
@@ -404,7 +404,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
               </p>
             )}
 
-            <div className="auth-left-foot">© FinPilot AI 2026</div>
+            <div className="auth-left-foot">ÔøΩ FinPilot AI 2026</div>
           </div>
 
           {/* -- RIGHT: artwork column -- */}
@@ -565,7 +565,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             <span>COMPLIANCE &amp; SECURITY STANDARDS</span>
-            <p>256-bit bank-grade encryption ∑ RBI Fair Practices Framework ∑ ISO 27001 &amp; SOC2 Type II Certified</p>
+            <p>256-bit bank-grade encryption ÔøΩ RBI Fair Practices Framework ÔøΩ ISO 27001 &amp; SOC2 Type II Certified</p>
           </div>
         </aside>
 
@@ -575,7 +575,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
           <div className="org-progress">
             <div className="org-progress-label">
               <span className="org-step-done">STEP 2 OF 3</span>
-              <span className="org-step-next">Organization Setup ∑ Next: Dashboard</span>
+              <span className="org-step-next">Organization Setup ÔøΩ Next: Dashboard</span>
             </div>
             <div className="org-progress-bars">
               <div className="org-progress-bar org-progress-done" />
@@ -767,7 +767,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
         {/* Header with Invoice Number */}
         <div className="invoice-modern-header">
           <div className="invoice-modern-header-left">
-            <div className="invoice-modern-brand">FinPilot AI ñ Customer Invoice</div>
+            <div className="invoice-modern-brand">FinPilot AI ÔøΩ Customer Invoice</div>
             <h1 className="invoice-modern-number">{invoice.invoice_number}</h1>
           </div>
           <div className="invoice-modern-header-right">
@@ -786,7 +786,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
           <div className="invoice-modern-info-grid">
             <div className="invoice-modern-info-col">
               <div className="invoice-modern-label">CUSTOMER</div>
-              <div className="invoice-modern-value-large">{cust?.name || 'ó'}</div>
+              <div className="invoice-modern-value-large">{cust?.name || 'ÔøΩ'}</div>
               {cust?.billing_address && <div className="invoice-modern-address">{cust.billing_address}</div>}
             </div>
             
@@ -1142,7 +1142,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
           <div className="invoice-form-clean-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'SavingÖ' : isEdit ? 'Save' : 'Create'}
+              {busy ? 'SavingÔøΩ' : isEdit ? 'Save' : 'Create'}
             </button>
           </div>
         </form>
@@ -1153,32 +1153,56 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
 
 // -- Customer modal ---------------------------------------------------------
 
-function CustomerModal({ orgId, onClose, onCreated }: { orgId: string; onClose: () => void; onCreated: () => void }) {
+function CustomerModal({ orgId, onClose, onCreated, editing }: { orgId: string; onClose: () => void; onCreated: () => void; editing: Customer | null }) {
+  const isEdit = !!editing
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [name, setName] = useState(editing?.name || '')
+  const [email, setEmail] = useState(editing?.email || '')
+  const [phone, setPhone] = useState(editing?.phone || '')
+  const [billingAddress, setBillingAddress] = useState(editing?.billing_address || '')
+  const [gstin, setGstin] = useState(editing?.gstin || '')
+  const [state, setState] = useState(editing?.state || '')
+  const [notes, setNotes] = useState(editing?.notes || '')
+  const [active, setActive] = useState(editing?.active ?? true)
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setBusy(true); setErr('')
-    const fd = new FormData(e.currentTarget)
+    e.preventDefault(); setBusy(true); setErr(''); setWarnings([])
     try {
-      await api.createCustomer(orgId, { name: fd.get('name') as string, email: fd.get('email') as string, phone: fd.get('phone') as string })
+      const data: Partial<Customer> = { name: name.trim(), email: email.trim(), phone: phone.trim(), billing_address: billingAddress.trim(), gstin: gstin.trim().toUpperCase(), state, notes: notes.trim(), active }
+      let response: Customer & { warnings?: string[] }
+      if (isEdit && editing) { response = await api.updateCustomer(orgId, editing.id, data) } else { response = await api.createCustomer(orgId, data) }
+      if (response.warnings && response.warnings.length > 0) { setWarnings(response.warnings); setBusy(false); return }
       onCreated(); onClose()
     } catch (e: unknown) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   return (
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <section className="modal">
+      <section className="modal" style={{ width: 'min(700px, 95%)' }}>
         <div className="modal-head">
-          <div><div className="eyebrow">WORKSPACE</div><h2>Add a customer</h2></div>
+          <div><div className="eyebrow">CUSTOMERS</div><h2>{isEdit ? 'Edit customer' : 'Add a customer'}</h2></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <form onSubmit={handle}>
-          <label>Customer name<input name="name" placeholder="Business or individual name" required /></label>
-          <label>Email<input name="email" type="email" placeholder="accounts@customer.in" /></label>
-          <label>Phone<input name="phone" placeholder="+91 98765 43210" /></label>
+          <label>Customer name *<input value={name} onChange={e => setName(e.target.value)} placeholder="Business or individual name" required /></label>
+          
+          <div className="form-row">
+            <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="accounts@customer.in" /></label>
+            <label>Phone<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" /></label>
+          </div>
+          <label>Billing address<textarea rows={3} value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Street address, city, state, PIN" /></label>
+          <div className="form-row">
+            <label>GSTIN<input value={gstin} onChange={e => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" maxLength={15} /></label>
+            <label>State<select value={state} onChange={e => setState(e.target.value)}><option value="">Select state</option>{INDIAN_STATES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}</select></label>
+          </div>
+          
+          <label>Notes<textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes about this customer" /></label>
+          {isEdit && (<label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /><span>Active (uncheck to deactivate)</span></label>)}
+          {warnings.length > 0 && (<div className="form-warning" style={{ background: '#fff4e6', border: '1px solid #ff9800', padding: '12px', borderRadius: '6px', marginTop: '12px' }}><strong style={{ color: '#e65100' }}>‚ö†Ô∏è Warning</strong><ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', color: '#e65100' }}>{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul><button type="button" className="secondary" style={{ marginTop: '8px', width: '100%' }} onClick={() => setWarnings([])}>Dismiss and continue anyway</button></div>)}
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'AddingÖ' : 'Add customer'}</button>
+            <button className="primary" disabled={busy}>{isEdit ? (busy ? 'Saving‚Ä¶' : 'Save changes') : (busy ? 'Adding‚Ä¶' : 'Add customer')}</button>
           </div>
         </form>
       </section>
@@ -1235,7 +1259,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
               <select name="invoice">
                 <option value="">No allocation</option>
                 {custInvoices.map(i => (
-                  <option key={i.id} value={i.id}>{i.invoice_number} ó {money(i.balance_minor)} outstanding</option>
+                  <option key={i.id} value={i.id}>{i.invoice_number} ÔøΩ {money(i.balance_minor)} outstanding</option>
                 ))}
               </select>
             </label>
@@ -1258,7 +1282,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'RecordingÖ' : 'Record payment'}</button>
+            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'RecordingÔøΩ' : 'Record payment'}</button>
           </div>
         </form>
       </section>
@@ -1433,16 +1457,16 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
       {tab === 'products' && (
         <div className="table-wrap">
           <div style={{ padding: '12px 20px' }}>
-            <div className="search"><Search size={15} /><input placeholder="Search productsÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+            <div className="search"><Search size={15} /><input placeholder="Search productsÔøΩ" value={query} onChange={e => setQuery(e.target.value)} /></div>
           </div>
           <table>
             <thead><tr><th>PRODUCT</th><th>SKU</th><th>HSN/SAC</th><th>PRICE</th><th>DEFAULT GST</th><th>STATUS</th><th></th></tr></thead>
             <tbody>
               {filteredProducts.map(p => (
                 <tr key={p.id}>
-                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} ∑ {p.description?.slice(0, 40)}</div></td>
-                  <td>{p.sku || 'ó'}</td>
-                  <td>{p.hsn_sac || 'ó'}</td>
+                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} ÔøΩ {p.description?.slice(0, 40)}</div></td>
+                  <td>{p.sku || 'ÔøΩ'}</td>
+                  <td>{p.hsn_sac || 'ÔøΩ'}</td>
                   <td className="amount">{money(p.price_minor)}</td>
                   <td>{p.default_gst_rate_bps ? `${p.default_gst_rate_name} (${p.default_gst_rate_bps / 100}%)` : 'No GST'}</td>
                   <td>{p.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
@@ -1468,7 +1492,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
                   <td className="strong">{r.name}</td>
                   <td className="amount">{r.rate_percent}</td>
                   <td style={{ fontSize: 10 }}>{r.preview}</td>
-                  <td>{r.in_use ? <span className="status issued">Yes</span> : 'ó'}</td>
+                  <td>{r.in_use ? <span className="status issued">Yes</span> : 'ÔøΩ'}</td>
                   <td>{r.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="icon-btn" title="Edit" onClick={() => onOpenRateModal(r)}><Pencil size={14} /></button>
@@ -1480,7 +1504,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
           </table>
           {gstRates.length === 0 && <div className="empty">No GST rates yet. Add your first rate.</div>}
           {gstRates.some(r => r.in_use && !r.active) && (
-            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices ó they are preserved as snapshots.</div>
+            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices ÔøΩ they are preserved as snapshots.</div>
           )}
         </div>
       )}
@@ -1499,6 +1523,7 @@ export default function App() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [editingRate, setEditingRate] = useState<GSTRate | null>(null)
   const [notice, setNotice] = useState('')
   const [query, setQuery] = useState('')
@@ -1520,7 +1545,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [gstRates, setGstRates] = useState<GSTRate[]>([])
   const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
-  // FORECAST DISABLED ó uncomment to re-enable
+  // FORECAST DISABLED ÔøΩ uncomment to re-enable
   // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -1614,7 +1639,7 @@ export default function App() {
     setCustomers([])
     setPayments([])
     setAging(null)
-    // FORECAST DISABLED ó uncomment to re-enable
+    // FORECAST DISABLED ÔøΩ uncomment to re-enable
     // setForecast(null)
     setNotifications([])
     setUnreadCount(0)
@@ -1627,7 +1652,7 @@ export default function App() {
     try {
       await api.logout(org?.id)
     } catch {
-      // Proceed even if backend call fails ó clear client state regardless
+      // Proceed even if backend call fails ÔøΩ clear client state regardless
     }
     broadcastLogout()
     clearAuth()
@@ -1646,7 +1671,7 @@ export default function App() {
   useEffect(() => {
     const unsub = subscribeLogoutChannel(() => {
       clearAuth()
-      // No toast here ó only the initiating tab shows "Logged out successfully"
+      // No toast here ÔøΩ only the initiating tab shows "Logged out successfully"
     })
     return unsub
   }, [clearAuth])
@@ -1703,9 +1728,9 @@ export default function App() {
     { name: 'Payments', icon: Wallet },
     { name: 'Aging report', icon: Clock3 },
     { name: 'Reminders', icon: Bell, soon: true },
-    // RECONCILIATION DISABLED ó uncomment to re-enable
+    // RECONCILIATION DISABLED ÔøΩ uncomment to re-enable
     // { name: 'Reconciliation', icon: GitMerge, soon: true },
-    // FORECAST DISABLED ó uncomment to re-enable
+    // FORECAST DISABLED ÔøΩ uncomment to re-enable
     // { name: 'Forecast', icon: TrendingUp },
     { name: 'AI Assistant', icon: Bot },
   ]
@@ -1757,7 +1782,7 @@ export default function App() {
             <Bell size={17} />Notifications
             {unreadCount > 0 && <span className="soon">{unreadCount}</span>}
           </button>
-          {/* AUDIT LOG DISABLED ó uncomment to re-enable */}
+          {/* AUDIT LOG DISABLED ÔøΩ uncomment to re-enable */}
           {/* <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button> */}
           <button className="nav-item" onClick={() => setPage('Settings')}><Settings2 size={17} />Settings</button>
           <div className="profile">
@@ -1771,7 +1796,7 @@ export default function App() {
             disabled={loggingOut}
             aria-label="Sign out"
           >
-            <LogOut size={15} /><span>{loggingOut ? 'Signing outÖ' : 'Sign out'}</span>
+            <LogOut size={15} /><span>{loggingOut ? 'Signing outÔøΩ' : 'Sign out'}</span>
           </button>
         </div>
       </aside>
@@ -1786,7 +1811,7 @@ export default function App() {
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
             <button className="icon-btn" title="Help"><CircleHelp size={18} /></button>
-            {/* Mobile logout ó hidden on desktop via CSS class */}
+            {/* Mobile logout ÔøΩ hidden on desktop via CSS class */}
             <button
               className="icon-btn logout-btn-mobile"
               title="Sign out"
@@ -1845,9 +1870,9 @@ export default function App() {
                 <div className="aging-list">
                   {[
                     ['Not yet due', 'not_yet_due', 'blue'],
-                    ['1ñ30 days', 'days_1_30', 'green'],
-                    ['31ñ60 days', 'days_31_60', 'amber'],
-                    ['61ñ90 days', 'days_61_90', 'orange'],
+                    ['1ÔøΩ30 days', 'days_1_30', 'green'],
+                    ['31ÔøΩ60 days', 'days_31_60', 'amber'],
+                    ['61ÔøΩ90 days', 'days_61_90', 'orange'],
                     ['Over 90 days', 'over_90', 'rose'],
                   ].map(([title, key, tone]) => (
                     <div className="aging-row" key={key}>
@@ -1991,7 +2016,7 @@ export default function App() {
                                     <td className="amount">{money(inv.total_minor)}</td>
                                     <td className="amount">{money(inv.paid_minor)}</td>
                                     <td className="amount">{money(inv.balance_minor)}</td>
-                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : 'ó'}</td>
+                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : 'ÔøΩ'}</td>
                                     <td><StatusBadge s={inv.display_status} /></td>
                                   </tr>
                                 )
@@ -2011,7 +2036,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>All invoices</h2><p>{filtered.length} invoices in your workspace</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="Search invoicesÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="Search invoicesÔøΩ" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <select className="status-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">All statuses</option><option value="overdue">Overdue</option><option value="issued">Unpaid</option><option value="partially_paid">Partially Paid</option><option value="paid">Paid</option><option value="draft">Draft</option></select>
                   <a href={`/api/v1/exports/invoices/?`} className="secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 7, padding: '9px 13px', border: '1px solid #e4e9e6', fontSize: 12, fontWeight: 600, color: '#52615a', background: '#fff' }} onClick={e => { e.preventDefault(); fetch(`/api/v1/exports/invoices/`, { credentials: 'include', headers: { 'X-Organization-ID': org.id } }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'invoices.csv'; a.click() }) }}>
                     <Download size={15} /> Export
@@ -2029,24 +2054,33 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>Customers</h2><p>{customers.length} customers</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="SearchÖ" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="SearchÔøΩ" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <button className="primary" onClick={() => setModal('customer')}><Plus size={16} /> Add customer</button>
                 </div>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>PHONE</th><th>OPEN INVOICES</th><th>OUTSTANDING</th><th>OPT-OUT</th></tr></thead>
+                  <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>PHONE</th><th>OPEN INVOICES</th><th>OUTSTANDING</th><th>OPT-OUT</th><th>ACTIONS</th></tr></thead>
                   <tbody>
                     {customers.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).map(c => {
                       const open = invoices.filter(i => i.customer === c.id && i.balance_minor > 0)
                       return (
                         <tr key={c.id}>
                           <td className="strong">{c.name}</td>
-                          <td>{c.email || 'ó'}</td>
-                          <td>{c.phone || 'ó'}</td>
+                          <td>{c.email || 'ÔøΩ'}</td>
+                          <td>{c.phone || 'ÔøΩ'}</td>
                           <td>{open.length}</td>
                           <td className="amount">{money(open.reduce((a, x) => a + x.balance_minor, 0))}</td>
                           <td>{c.opt_out ? <span className="status overdue">Opted out</span> : <span className="status paid">Active</span>}</td>
+                            <td>
+                              <button 
+                                className="icon-btn" 
+                                onClick={() => { setEditingCustomer(c); setModal('customer') }}
+                                title="Edit customer"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                            </td>
                         </tr>
                       )
                     })}
@@ -2071,12 +2105,12 @@ export default function App() {
                     {payments.map(p => (
                       <tr key={p.id}>
                         <td>{fmtDate(p.payment_date)}</td>
-                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || 'ó'}</td>
+                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || 'ÔøΩ'}</td>
                         <td className="amount">{money(p.amount_minor)}</td>
                         <td>{p.method.replace(/_/g, ' ')}</td>
-                        <td>{p.reference || 'ó'}</td>
-                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || 'ó'}</td>
-                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : 'ó'}</td>
+                        <td>{p.reference || 'ÔøΩ'}</td>
+                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || 'ÔøΩ'}</td>
+                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : 'ÔøΩ'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2090,18 +2124,18 @@ export default function App() {
           {page === 'Aging report' && (
             <div className="panel">
               <div className="panel-head">
-                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} ∑ Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
+                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} ÔøΩ Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
                 <button className="secondary" onClick={() => org && api.aging(org.id).then(setAging)}><RefreshCw size={15} /> Refresh</button>
               </div>
               {(['not_yet_due', 'days_1_30', 'days_31_60', 'days_61_90', 'over_90'] as const).map(key => {
                 const rows = aging?.buckets?.[key] || []
                 const labels: Record<string, string> = {
-                  not_yet_due: 'Not yet due', days_1_30: '1ñ30 days overdue',
-                  days_31_60: '31ñ60 days overdue', days_61_90: '61ñ90 days overdue', over_90: 'Over 90 days overdue',
+                  not_yet_due: 'Not yet due', days_1_30: '1ÔøΩ30 days overdue',
+                  days_31_60: '31ÔøΩ60 days overdue', days_61_90: '61ÔøΩ90 days overdue', over_90: 'Over 90 days overdue',
                 }
                 return (
                   <div className="aging-section" key={key}>
-                    <h3>{labels[key]} ó {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
+                    <h3>{labels[key]} ÔøΩ {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
                     {rows.length ? rows.map(r => (
                       <div className="aging-invoice" key={r.id}>
                         <b>{r.invoice_number}</b>
@@ -2116,16 +2150,17 @@ export default function App() {
             </div>
           )}
 
-          {/* -- Forecast -- DISABLED ó uncomment to re-enable */}
+          {/* -- Forecast -- DISABLED ÔøΩ uncomment to re-enable */}
           {/* {page === 'Forecast' && (
-            <ForecastPage orgId={org.id} />
+            <ForecastPage orgId={org.id}
+            editing={editingCustomer} />
           )} */}
 
           {/* -- AI Assistant -- */}
           {page === 'AI Assistant' && (
             <div className="panel ai-panel">
               <div className="panel-head">
-                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord ó answers are based on your live data.</p></div>
+                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord ÔøΩ answers are based on your live data.</p></div>
               </div>
               <div className="ai-body">
                 <div className="ai-disclaimer">
@@ -2140,11 +2175,11 @@ export default function App() {
                     className="ai-input"
                   />
                   <button className="primary" disabled={asking || !question.trim()}>
-                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> ThinkingÖ</> : <><Bot size={15} /> Ask</>}
+                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> ThinkingÔøΩ</> : <><Bot size={15} /> Ask</>}
                   </button>
                 </form>
 
-                {/* Error banner ó shown instead of the answer box */}
+                {/* Error banner ÔøΩ shown instead of the answer box */}
                 {aiError && (
                   <div className={`ai-error-banner ${aiError.type === 'llm_quota_exceeded' ? 'ai-error-quota' : 'ai-error-generic'}`}>
                     <div className="ai-error-header">
@@ -2159,7 +2194,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Answer box ó only shown on success */}
+                {/* Answer box ÔøΩ only shown on success */}
                 {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
@@ -2209,8 +2244,9 @@ export default function App() {
             </div>
           )}
 
-          {/* -- Audit log -- DISABLED ó uncomment to re-enable */}
-          {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id} />} */}
+          {/* -- Audit log -- DISABLED ÔøΩ uncomment to re-enable */}
+          {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id}
+            editing={editingCustomer} />} */}
 
           {/* -- Settings -- */}
           {page === 'Settings' && (
@@ -2230,7 +2266,8 @@ export default function App() {
           {/* -- Products -- */}
           {page === 'Products' && org && (
             <ProductsPage
-              orgId={org.id} products={products} gstRates={gstRates}
+              orgId={org.id}
+              products={products} gstRates={gstRates}
               onReload={() => loadData(org)}
               onOpenProductModal={p => { setEditingProduct(p); setModal('product') }}
               onOpenRateModal={r => { setEditingRate(r); setModal('gstrate') }}
@@ -2238,7 +2275,7 @@ export default function App() {
           )}
 
           {/* -- Reminders / Reconciliation (coming soon) -- */}
-          {/* RECONCILIATION DISABLED ó uncomment `|| page === 'Reconciliation'` to re-enable */}
+          {/* RECONCILIATION DISABLED ÔøΩ uncomment `|| page === 'Reconciliation'` to re-enable */}
           {(page === 'Reminders' /* || page === 'Reconciliation' */) && (
             <div className="coming">
               <div className="coming-icon"><Activity size={24} /></div>
@@ -2250,7 +2287,7 @@ export default function App() {
           )}
 
           <footer>
-            FinPilot AI <span>∑</span> INR reporting <span>∑</span> Data as of {dashboard?.as_of || 'today'}
+            FinPilot AI <span>ÔøΩ</span> INR reporting <span>ÔøΩ</span> Data as of {dashboard?.as_of || 'today'}
             <span className="footer-right">Questions? <a href="mailto:support@finpilot.ai">Talk to our team</a></span>
           </footer>
         </section>
@@ -2275,10 +2312,12 @@ export default function App() {
         />
       )}
       {modal === 'customer' && org && (
-        <CustomerModal orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
+        <CustomerModal orgId={org.id}
+            editing={editingCustomer} onClose={() => { setModal(''); setEditingCustomer(null) }} onCreated={() => loadData(org)} />
       )}
       {modal === 'payment' && org && (
-        <PaymentModal customers={customers} invoices={invoices} orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
+        <PaymentModal customers={customers} invoices={invoices} orgId={org.id}
+          onClose={() => { setModal(''); setEditingCustomer(null) }} onCreated={() => loadData(org)} />
       )}
       {modal === 'product' && org && (
         <ProductModal
@@ -2333,7 +2372,7 @@ export default function App() {
                 aria-busy={loggingOut}
                 data-testid="confirm-logout-btn"
               >
-                <LogOut size={15} />{loggingOut ? 'Signing outÖ' : 'Sign out'}
+                <LogOut size={15} />{loggingOut ? 'Signing outÔøΩ' : 'Sign out'}
               </button>
             </div>
           </section>
@@ -2343,7 +2382,7 @@ export default function App() {
   )
 }
 
-// -- Forecast page component -- DISABLED ó uncomment to re-enable -------------
+// -- Forecast page component -- DISABLED ÔøΩ uncomment to re-enable -------------
 /*
 function ForecastPage({ orgId }: { orgId: string }) {
   const [period, setPeriod] = useState<7 | 30 | 60>(30)
@@ -2359,7 +2398,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
   return (
     <div className="panel">
       <div className="panel-head">
-        <div><h2>Cash inflow forecast</h2><p>Expected receivables ó not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
+        <div><h2>Cash inflow forecast</h2><p>Expected receivables ÔøΩ not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
         <div className="toolbar">
           <select value={period} onChange={e => setPeriod(Number(e.target.value) as 7 | 30 | 60)} style={{ height: 34, borderRadius: 7, border: '1px solid #e3e8e5', padding: '0 9px', fontSize: 12 }}>
             <option value={7}>7 days</option>
@@ -2372,7 +2411,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </select>
         </div>
       </div>
-      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecastÖ</div>}
+      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecastÔøΩ</div>}
       {data && !loading && (
         <div style={{ padding: '0 24px 20px' }}>
           {data.insufficient_history && (
@@ -2392,9 +2431,9 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </div>
           <div style={{ fontSize: 11, color: '#9aa39e', marginTop: 12, borderTop: '1px solid #f0f2f1', paddingTop: 12 }}>
             <strong>Assumptions:</strong>{' '}
-            Timing: {String(data.assumptions.timing_assumption)}{' '}∑{' '}
-            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}∑{' '}
-            Base offset: {String(data.assumptions.base_offset_days)} days{' '}∑{' '}
+            Timing: {String(data.assumptions.timing_assumption)}{' '}ÔøΩ{' '}
+            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}ÔøΩ{' '}
+            Base offset: {String(data.assumptions.base_offset_days)} days{' '}ÔøΩ{' '}
             Optimistic offset: {String(data.assumptions.optimistic_offset_days)} days
           </div>
         </div>
@@ -2404,7 +2443,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
 }
 */
 
-// -- Audit log page -- DISABLED ó uncomment to re-enable ---------------------
+// -- Audit log page -- DISABLED ÔøΩ uncomment to re-enable ---------------------
 /*
 function AuditLogPage({ orgId }: { orgId: string }) {
   const [logs, setLogs] = useState<import('./lib/api').AuditLog[]>([])

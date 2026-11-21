@@ -12,7 +12,7 @@ export type OrganizationDetail = Org & {
 export type Customer = {
   id: string; name: string; contact_name: string; email: string; phone: string
   billing_address: string; gstin: string; state: string; payment_terms_days: number
-  active: boolean; opt_out: boolean; created_at: string
+  notes: string; active: boolean; opt_out: boolean; created_at: string
 }
 export type GSTRate = {
   id: string; name: string; rate_bps: number; active: boolean
