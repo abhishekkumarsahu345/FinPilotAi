@@ -1,10 +1,10 @@
-﻿// FinPilot AI - Invoice Module Improved
+﻿﻿﻿﻿﻿// FinPilot AI - Invoice Module Improved
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
-  Activity, ArrowUpRight, Bell, ChevronDown, CircleHelp, Clock3,
-  FileSpreadsheet, FileText, LayoutDashboard, LogOut, Plus, Search,
-  Settings2, ShieldCheck, Users, Wallet, X, Bot, /*GitMerge,*/
+  Activity, ArrowUpRight, Bell, ChevronDown, ChevronUp, CircleHelp, Clock3,
+  FileSpreadsheet, FileText, LayoutDashboard, Loader2, LogOut, Plus, Search,
+  Send, Settings2, ShieldCheck, Users, Wallet, X, Bot, /*GitMerge,*/
   TrendingUp, Download, CheckCircle, AlertCircle, RefreshCw,
   Package, Pencil, Power, Percent, Tag,
 } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
   type User, type Org, type Invoice, type Customer,
   type Payment, type DashboardData, type AgingData, /*type ForecastData,*/ type Notification,
   type Product, type GSTRate, type OrganizationDetail,
+  type ReminderSchedule, type ReminderStep, type ReminderJob,
 } from './lib/api'
 
 // -- Types ------------------------------------------------------------------
@@ -1496,6 +1497,85 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
 
 // ========== REMINDERS PAGE COMPONENT ==========
 
+// Renders an iframe that grows to fit its own content, so it never shows an
+// internal scrollbar. The surrounding container (e.g. a modal body) becomes
+// the single scroll region. Works with `srcDoc` content, which is same-origin,
+// so we can read the document's scrollHeight and observe layout changes.
+function AutoHeightIframe({
+  srcDoc,
+  title,
+  background = 'white',
+}: {
+  srcDoc: string
+  title: string
+  background?: string
+}) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
+  const roRef = useRef<ResizeObserver | null>(null)
+
+  const measure = useCallback(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+    try {
+      const doc = iframe.contentDocument
+      if (!doc) return
+      const h = Math.max(
+        doc.body?.scrollHeight ?? 0,
+        doc.documentElement?.scrollHeight ?? 0,
+      )
+      // Avoid feedback loops / layout thrash: only update on a real change.
+      const current = parseInt(iframe.style.height, 10)
+      if (h > 0 && h !== current) iframe.style.height = `${h}px`
+    } catch {
+      // contentDocument unavailable (cross-origin / not loaded yet) — skip.
+    }
+  }, [])
+
+  useEffect(() => {
+    const iframe = iframeRef.current
+    if (!iframe) return
+
+    const attach = () => {
+      measure()
+      const doc = iframe.contentDocument
+      if (!doc) return
+      try {
+        roRef.current?.disconnect()
+        const ro = new ResizeObserver(() => measure())
+        if (doc.documentElement) ro.observe(doc.documentElement)
+        if (doc.body) ro.observe(doc.body)
+        roRef.current = ro
+        // Re-measure when images finish loading (late layout shifts).
+        doc.querySelectorAll('img').forEach((img) => {
+          if (!img.complete) img.addEventListener('load', measure, { once: true })
+        })
+      } catch {
+        /* ignore */
+      }
+    }
+
+    iframe.addEventListener('load', attach)
+    // Cover the case where load already fired (e.g. cached/empty content).
+    attach()
+
+    return () => {
+      iframe.removeEventListener('load', attach)
+      roRef.current?.disconnect()
+      roRef.current = null
+    }
+  }, [srcDoc, measure])
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={srcDoc}
+      title={title}
+      scrolling="no"
+      style={{ width: '100%', border: 'none', background, display: 'block' }}
+    />
+  )
+}
+
 function RemindersPage({ org }: { org: Org }) {
   const [view, setView] = useState<'pending' | 'sent' | 'failed' | 'schedules'>('pending')
   const [schedules, setSchedules] = useState<ReminderSchedule[]>([])
@@ -1517,6 +1597,8 @@ function RemindersPage({ org }: { org: Org }) {
   // Approval form state
   const [customIntro, setCustomIntro] = useState('')
   const [customClosing, setCustomClosing] = useState('')
+  // Controls the left-pane collapse on mobile (< 900 px)
+  const [detailsOpen, setDetailsOpen] = useState(true)
 
   // Load data
   const loadSchedules = useCallback(async () => {
@@ -1936,135 +2018,321 @@ function RemindersPage({ org }: { org: Org }) {
         </div>
       )}
 
-      {/* Email Preview Modal */}
-      {showPreviewModal && previewJob && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center',
-          alignItems: 'center', zIndex: 1000, padding: '20px'
-        }}>
-          <div style={{
-            background: 'white', borderRadius: '8px', maxWidth: '900px',
-            width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {/* Modal Header */}
-            <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-                Preview & Approve Reminder: {previewJob.invoice_number}
-              </h2>
-              <button onClick={() => { setShowPreviewModal(false); setPreviewJob(null) }} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280'
+      {/* Email Preview Modal — two-pane redesign */}
+      {showPreviewModal && previewJob && (() => {
+        const closeModal = () => { setShowPreviewModal(false); setPreviewJob(null) }
+        const overdueDays = previewJob.snapshot_days_overdue
+        const isOverdue = overdueDays > 0
+        const outstandingColor = isOverdue ? '#dc2626' : '#059669'
+        const subject = previewJob.email_preview_subject || `Payment Reminder: Invoice ${previewJob.invoice_number}`
+        return (
+          /* Backdrop */
+          <div
+            role="presentation"
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(15,23,42,0.55)', display: 'flex',
+              justifyContent: 'center', alignItems: 'center',
+              zIndex: 1000, padding: '12px'
+            }}
+            onClick={e => { if (e.target === e.currentTarget) closeModal() }}
+          >
+            {/* Modal shell */}
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="rap-title"
+              style={{
+                background: 'white', borderRadius: '16px',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+                width: '100%', maxWidth: '1100px',
+                height: '85vh', maxHeight: '85vh',
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Fixed Header */}
+              <header style={{
+                flexShrink: 0, padding: '16px 24px',
+                borderBottom: '1px solid #e5e7eb',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', gap: '16px',
+                background: 'white'
               }}>
-                <X size={24} />
-              </button>
-            </div>
+                <h2 id="rap-title" style={{
+                  margin: 0, fontSize: '17px', fontWeight: 700,
+                  color: '#0f172a', letterSpacing: '-0.01em',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}>
+                  Preview &amp; Approve Reminder: {previewJob.invoice_number}
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={loading}
+                  aria-label="Close modal"
+                  style={{
+                    flexShrink: 0, width: '32px', height: '32px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'none', border: 'none', borderRadius: '8px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    color: '#64748b', opacity: loading ? 0.5 : 1
+                  }}
+                >
+                  <X size={20} aria-hidden="true" />
+                </button>
+              </header>
 
-            {/* Modal Body */}
-            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
-              {/* Invoice Info */}
-              <div style={{ background: '#f9fafb', padding: '16px', borderRadius: '6px', marginBottom: '20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', fontSize: '14px' }}>
-                  <div>
-                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Customer</div>
-                    <div style={{ fontWeight: 600 }}>{previewJob.customer_name}</div>
-                    <div style={{ fontSize: '13px', color: '#6b7280' }}>{previewJob.customer_email}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Outstanding</div>
-                    <div style={{ fontWeight: 600, fontSize: '18px', color: previewJob.snapshot_days_overdue > 0 ? '#dc2626' : '#059669' }}>
-                      {money(previewJob.current_outstanding_minor || previewJob.snapshot_outstanding_minor)}
+              {/* Two-column body */}
+              <div style={{
+                flex: 1, minHeight: 0, display: 'grid', overflow: 'hidden',
+                gridTemplateColumns: 'clamp(260px, 35%, 380px) 1fr'
+              }}>
+                {/* Left Pane */}
+                <aside style={{
+                  background: '#f8f9fb',
+                  borderRight: '1px solid #e5e7eb',
+                  display: 'flex', flexDirection: 'column',
+                  overflowY: 'auto', overflowX: 'hidden',
+                  padding: '20px', gap: '14px'
+                }}>
+                  {/* Summary card */}
+                  <div style={{
+                    background: 'white', border: '1px solid #e5e7eb',
+                    borderRadius: '10px', padding: '16px',
+                    display: 'flex', flexDirection: 'column', gap: '12px'
+                  }}>
+                    {/* Customer */}
+                    <div style={{ paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Customer
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '2px' }}>
+                        {previewJob.customer_name || '\u2014'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#64748b', wordBreak: 'break-all' }}>
+                        {previewJob.customer_email || '\u2014'}
+                      </div>
+                    </div>
+                    {/* Outstanding */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between', gap: '8px',
+                      paddingBottom: '12px', borderBottom: '1px solid #f1f5f9'
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Outstanding
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: outstandingColor }}>
+                        {money(previewJob.current_outstanding_minor || previewJob.snapshot_outstanding_minor)}
+                      </div>
+                    </div>
+                    {/* Due Date + overdue pill */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Due Date
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: '#0f172a' }}>
+                          {fmtDate(previewJob.snapshot_due_date) || '\u2014'}
+                        </span>
+                        {isOverdue && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center',
+                            padding: '2px 8px', borderRadius: '999px',
+                            background: '#fef2f2', color: '#dc2626',
+                            fontSize: '11px', fontWeight: 600
+                          }}>
+                            {overdueDays} {overdueDays === 1 ? 'day' : 'days'} overdue
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div style={{ color: '#6b7280', marginBottom: '4px' }}>Due Date</div>
-                    <div style={{ fontWeight: 600 }}>{fmtDate(previewJob.snapshot_due_date)}</div>
-                    {previewJob.snapshot_days_overdue > 0 && (
-                      <div style={{ fontSize: '13px', color: '#dc2626' }}>{previewJob.snapshot_days_overdue} days overdue</div>
+
+                  {/* Custom Introduction */}
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>
+                      Custom Introduction{' '}
+                      <span style={{ fontWeight: 400, color: '#64748b' }}>(optional)</span>
+                    </span>
+                    <textarea
+                      rows={3}
+                      value={customIntro}
+                      onChange={e => setCustomIntro(e.target.value)}
+                      disabled={loading}
+                      placeholder="Add a personal message at the beginning of the email..."
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '8px 12px', border: '1px solid #d1d5db',
+                        borderRadius: '8px', fontSize: '13px',
+                        color: '#0f172a', background: 'white',
+                        resize: 'vertical', minHeight: '72px',
+                        outline: 'none', fontFamily: 'inherit',
+                        opacity: loading ? 0.6 : 1,
+                        cursor: loading ? 'not-allowed' : 'text'
+                      }}
+                    />
+                  </label>
+
+                  {/* Custom Closing */}
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>
+                      Custom Closing{' '}
+                      <span style={{ fontWeight: 400, color: '#64748b' }}>(optional)</span>
+                    </span>
+                    <textarea
+                      rows={3}
+                      value={customClosing}
+                      onChange={e => setCustomClosing(e.target.value)}
+                      disabled={loading}
+                      placeholder="Add a personal message at the end of the email..."
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '8px 12px', border: '1px solid #d1d5db',
+                        borderRadius: '8px', fontSize: '13px',
+                        color: '#0f172a', background: 'white',
+                        resize: 'vertical', minHeight: '72px',
+                        outline: 'none', fontFamily: 'inherit',
+                        opacity: loading ? 0.6 : 1,
+                        cursor: loading ? 'not-allowed' : 'text'
+                      }}
+                    />
+                  </label>
+
+                  {/* Email Subject (read-only) */}
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>Email Subject</span>
+                    <input
+                      type="text"
+                      readOnly
+                      value={subject}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        padding: '8px 12px', border: '1px solid #e5e7eb',
+                        borderRadius: '8px', fontSize: '13px',
+                        color: '#0f172a', background: '#f3f4f6',
+                        cursor: 'default', outline: 'none', fontFamily: 'inherit'
+                      }}
+                    />
+                  </label>
+                </aside>
+
+                {/* Right Pane — sole scroll region */}
+                <section style={{
+                  display: 'flex', flexDirection: 'column',
+                  background: '#f3f4f6', minHeight: 0, overflow: 'hidden'
+                }}>
+                  {/* Preview label bar */}
+                  <div style={{
+                    flexShrink: 0, padding: '10px 24px',
+                    borderBottom: '1px solid #e5e7eb',
+                    background: '#f3f4f6',
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>Email Preview</span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        padding: '2px 8px', borderRadius: '999px',
+                        background: '#eff6ff', color: '#2563eb',
+                        fontSize: '11px', fontWeight: 600
+                      }}>
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          background: '#10b981', display: 'inline-block', flexShrink: 0
+                        }} aria-hidden="true" />
+                        Live
+                      </span>
+                    </div>
+                    {previewJob.invoice_number && (
+                      <span style={{ fontSize: '12px', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                        {previewJob.invoice_number}
+                      </span>
                     )}
                   </div>
-                </div>
-              </div>
 
-              {/* Custom Messages */}
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-                  Custom Introduction (optional)
-                </label>
-                <textarea
-                  value={customIntro}
-                  onChange={e => setCustomIntro(e.target.value)}
-                  placeholder="Add a personal message at the beginning of the email..."
-                  style={{
-                    width: '100%', padding: '10px', border: '1px solid #e5e7eb',
-                    borderRadius: '6px', fontSize: '14px', resize: 'vertical', minHeight: '60px'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-                  Custom Closing (optional)
-                </label>
-                <textarea
-                  value={customClosing}
-                  onChange={e => setCustomClosing(e.target.value)}
-                  placeholder="Add a personal message at the end of the email..."
-                  style={{
-                    width: '100%', padding: '10px', border: '1px solid #e5e7eb',
-                    borderRadius: '6px', fontSize: '14px', resize: 'vertical', minHeight: '60px'
-                  }}
-                />
-              </div>
-
-              {/* Email Preview */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontWeight: 500, marginBottom: '8px' }}>Email Subject:</div>
-                <div style={{ padding: '10px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px' }}>
-                  {previewJob.email_preview_subject || `Payment Reminder: Invoice ${previewJob.invoice_number}`}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontWeight: 500, marginBottom: '8px' }}>Email Body Preview:</div>
-                <div style={{
-                  border: '1px solid #e5e7eb', borderRadius: '6px', padding: '20px',
-                  background: '#f9fafb', maxHeight: '400px', overflowY: 'auto'
-                }}>
-                  {previewJob.email_preview_html ? (
-                    <iframe
-                      srcDoc={previewJob.email_preview_html}
-                      style={{ width: '100%', height: '400px', border: 'none', background: 'white' }}
-                      title="Email Preview"
-                    />
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-                      Email preview not available
+                  {/* Scrollable email frame */}
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px' }}>
+                    <div style={{
+                      maxWidth: '640px', margin: '0 auto',
+                      background: 'white', borderRadius: '12px',
+                      border: '1px solid #e5e7eb',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                      overflow: 'hidden'
+                    }}>
+                      {previewJob.email_preview_html ? (
+                        <AutoHeightIframe
+                          srcDoc={previewJob.email_preview_html}
+                          title="Email Preview"
+                        />
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '48px 24px', color: '#94a3b8', fontSize: '14px' }}>
+                          Email preview not available
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </section>
               </div>
-            </div>
 
-            {/* Modal Footer */}
-            <div style={{ padding: '20px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button onClick={() => { setShowPreviewModal(false); setPreviewJob(null) }} style={{
-                padding: '10px 20px', background: '#f3f4f6', border: 'none',
-                borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+              {/* Fixed Footer */}
+              <footer style={{
+                flexShrink: 0, padding: '14px 24px',
+                borderTop: '1px solid #e5e7eb', background: 'white',
+                display: 'flex', justifyContent: 'flex-end', gap: '10px'
               }}>
-                Cancel
-              </button>
-              <button onClick={handleApprove} disabled={loading} style={{
-                padding: '10px 20px', background: '#10b981', color: 'white', border: 'none',
-                borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 500,
-                opacity: loading ? 0.5 : 1
-              }}>
-                {loading ? 'Approving...' : 'Approve & Send'}
-              </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={loading}
+                  style={{
+                    padding: '9px 20px', background: '#f3f4f6',
+                    border: '1px solid #e5e7eb', borderRadius: '8px',
+                    fontSize: '14px', fontWeight: 600, color: '#0f172a',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.5 : 1,
+                    transition: 'background 0.15s, box-shadow 0.15s, transform 0.1s'
+                  }}
+                  onMouseEnter={e => { if (!loading) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#e5e7eb'; b.style.boxShadow = '0 1px 4px rgba(0,0,0,0.10)' } }}
+                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#f3f4f6'; b.style.boxShadow = 'none'; b.style.transform = 'scale(1)' }}
+                  onMouseDown={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.97)' }}
+                  onMouseUp={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={loading}
+                  style={{
+                    padding: '9px 20px', background: '#18ac7a',
+                    border: 'none', borderRadius: '8px',
+                    fontSize: '14px', fontWeight: 600,
+                    color: '#000000',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    transition: 'background 0.15s, box-shadow 0.15s, transform 0.1s'
+                  }}
+                  onMouseEnter={e => { if (!loading) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#00FF00'; b.style.boxShadow = '0 2px 8px rgba(0,255,0,0.35)' } }}
+                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#10b981'; b.style.boxShadow = 'none'; b.style.transform = 'scale(1)' }}
+                  onMouseDown={e => { if (!loading) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#0d9668'; b.style.transform = 'scale(0.97)' } }}
+                  onMouseUp={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#0ea571'; b.style.transform = 'scale(1)' }}
+                >
+                  {loading
+                    ? <Loader2 size={15} aria-hidden="true" style={{ animation: 'spin 1s linear infinite' }} />
+                    : <Send size={15} aria-hidden="true" />
+                  }
+                  <span>{loading ? 'Sending...' : 'Approve & Send'}</span>
+                </button>
+              </footer>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

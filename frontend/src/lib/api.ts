@@ -96,7 +96,7 @@ export type ReminderJob = {
   sent_total_minor?: number; sent_paid_minor?: number; sent_outstanding_minor?: number
   approved_custom_intro: string; approved_custom_closing: string
   needs_manual_followup: boolean
-  dispatched_at: string | null; block_reason: string
+  dispatched_at: string | null; block_reason: string; retry_count: number
   created_at: string
   email_preview_subject?: string; email_preview_html?: string
 }
