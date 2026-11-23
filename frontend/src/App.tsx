@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-﻿// FinPilot AI - Invoice Module Improved
-=======
 ﻿﻿﻿﻿﻿// FinPilot AI - Invoice Module Improved
->>>>>>> smtp-changes
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
@@ -159,11 +155,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
       if (org.length < 2) { setError('Business name must be at least 2 characters.'); return }
     }
 
-<<<<<<< HEAD
-    // Forgot password � UI only, no backend endpoint
-=======
     // Forgot password — UI only, no backend endpoint
->>>>>>> smtp-changes
     if (mode === 'forgot') {
       setBusy(true)
       await new Promise(r => setTimeout(r, 800)) // brief simulated delay
@@ -295,11 +287,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
                         id="fp-password"
                         name="password"
                         type={showPassword ? 'text' : 'password'}
-<<<<<<< HEAD
-                        placeholder={mode === 'login' ? '��������' : 'Minimum 8 characters'}
-=======
                         placeholder={mode === 'login' ? '••••••••' : 'Minimum 8 characters'}
->>>>>>> smtp-changes
                         required
                         autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       />
@@ -417,11 +405,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
               </p>
             )}
 
-<<<<<<< HEAD
-            <div className="auth-left-foot">� FinPilot AI 2026</div>
-=======
             <div className="auth-left-foot">© FinPilot AI 2026</div>
->>>>>>> smtp-changes
           </div>
 
           {/* -- RIGHT: artwork column -- */}
@@ -582,11 +566,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             <span>COMPLIANCE &amp; SECURITY STANDARDS</span>
-<<<<<<< HEAD
-            <p>256-bit bank-grade encryption � RBI Fair Practices Framework � ISO 27001 &amp; SOC2 Type II Certified</p>
-=======
             <p>256-bit bank-grade encryption · RBI Fair Practices Framework · ISO 27001 &amp; SOC2 Type II Certified</p>
->>>>>>> smtp-changes
           </div>
         </aside>
 
@@ -596,11 +576,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
           <div className="org-progress">
             <div className="org-progress-label">
               <span className="org-step-done">STEP 2 OF 3</span>
-<<<<<<< HEAD
-              <span className="org-step-next">Organization Setup � Next: Dashboard</span>
-=======
               <span className="org-step-next">Organization Setup · Next: Dashboard</span>
->>>>>>> smtp-changes
             </div>
             <div className="org-progress-bars">
               <div className="org-progress-bar org-progress-done" />
@@ -792,11 +768,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
         {/* Header with Invoice Number */}
         <div className="invoice-modern-header">
           <div className="invoice-modern-header-left">
-<<<<<<< HEAD
-            <div className="invoice-modern-brand">FinPilot AI � Customer Invoice</div>
-=======
             <div className="invoice-modern-brand">FinPilot AI – Customer Invoice</div>
->>>>>>> smtp-changes
             <h1 className="invoice-modern-number">{invoice.invoice_number}</h1>
           </div>
           <div className="invoice-modern-header-right">
@@ -815,11 +787,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
           <div className="invoice-modern-info-grid">
             <div className="invoice-modern-info-col">
               <div className="invoice-modern-label">CUSTOMER</div>
-<<<<<<< HEAD
-              <div className="invoice-modern-value-large">{cust?.name || '�'}</div>
-=======
               <div className="invoice-modern-value-large">{cust?.name || '—'}</div>
->>>>>>> smtp-changes
               {cust?.billing_address && <div className="invoice-modern-address">{cust.billing_address}</div>}
             </div>
             
@@ -1175,11 +1143,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
           <div className="invoice-form-clean-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary" disabled={busy}>
-<<<<<<< HEAD
-              {busy ? 'Saving�' : isEdit ? 'Save' : 'Create'}
-=======
               {busy ? 'Saving…' : isEdit ? 'Save' : 'Create'}
->>>>>>> smtp-changes
             </button>
           </div>
         </form>
@@ -1190,60 +1154,32 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
 
 // -- Customer modal ---------------------------------------------------------
 
-function CustomerModal({ orgId, onClose, onCreated, editing }: { orgId: string; onClose: () => void; onCreated: () => void; editing: Customer | null }) {
-  const isEdit = !!editing
+function CustomerModal({ orgId, onClose, onCreated }: { orgId: string; onClose: () => void; onCreated: () => void }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [warnings, setWarnings] = useState<string[]>([])
-  const [name, setName] = useState(editing?.name || '')
-  const [email, setEmail] = useState(editing?.email || '')
-  const [phone, setPhone] = useState(editing?.phone || '')
-  const [billingAddress, setBillingAddress] = useState(editing?.billing_address || '')
-  const [gstin, setGstin] = useState(editing?.gstin || '')
-  const [state, setState] = useState(editing?.state || '')
-  const [notes, setNotes] = useState(editing?.notes || '')
-  const [active, setActive] = useState(editing?.active ?? true)
   const handle = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); setBusy(true); setErr(''); setWarnings([])
+    e.preventDefault(); setBusy(true); setErr('')
+    const fd = new FormData(e.currentTarget)
     try {
-      const data: Partial<Customer> = { name: name.trim(), email: email.trim(), phone: phone.trim(), billing_address: billingAddress.trim(), gstin: gstin.trim().toUpperCase(), state, notes: notes.trim(), active }
-      let response: Customer & { warnings?: string[] }
-      if (isEdit && editing) { response = await api.updateCustomer(orgId, editing.id, data) } else { response = await api.createCustomer(orgId, data) }
-      if (response.warnings && response.warnings.length > 0) { setWarnings(response.warnings); setBusy(false); return }
+      await api.createCustomer(orgId, { name: fd.get('name') as string, email: fd.get('email') as string, phone: fd.get('phone') as string })
       onCreated(); onClose()
     } catch (e: unknown) { setErr((e as Error).message) } finally { setBusy(false) }
   }
   return (
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <section className="modal" style={{ width: 'min(700px, 95%)' }}>
+      <section className="modal">
         <div className="modal-head">
-          <div><div className="eyebrow">CUSTOMERS</div><h2>{isEdit ? 'Edit customer' : 'Add a customer'}</h2></div>
+          <div><div className="eyebrow">WORKSPACE</div><h2>Add a customer</h2></div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
         <form onSubmit={handle}>
-          <label>Customer name *<input value={name} onChange={e => setName(e.target.value)} placeholder="Business or individual name" required /></label>
-          
-          <div className="form-row">
-            <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="accounts@customer.in" /></label>
-            <label>Phone<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 98765 43210" /></label>
-          </div>
-          <label>Billing address<textarea rows={3} value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Street address, city, state, PIN" /></label>
-          <div className="form-row">
-            <label>GSTIN<input value={gstin} onChange={e => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" maxLength={15} /></label>
-            <label>State<select value={state} onChange={e => setState(e.target.value)}><option value="">Select state</option>{INDIAN_STATES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}</select></label>
-          </div>
-          
-          <label>Notes<textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes about this customer" /></label>
-          {isEdit && (<label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} /><span>Active (uncheck to deactivate)</span></label>)}
-          {warnings.length > 0 && (<div className="form-warning" style={{ background: '#fff4e6', border: '1px solid #ff9800', padding: '12px', borderRadius: '6px', marginTop: '12px' }}><strong style={{ color: '#e65100' }}>⚠️ Warning</strong><ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', color: '#e65100' }}>{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul><button type="button" className="secondary" style={{ marginTop: '8px', width: '100%' }} onClick={() => setWarnings([])}>Dismiss and continue anyway</button></div>)}
+          <label>Customer name<input name="name" placeholder="Business or individual name" required /></label>
+          <label>Email<input name="email" type="email" placeholder="accounts@customer.in" /></label>
+          <label>Phone<input name="phone" placeholder="+91 98765 43210" /></label>
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-<<<<<<< HEAD
-            <button className="primary" disabled={busy}>{isEdit ? (busy ? 'Saving…' : 'Save changes') : (busy ? 'Adding…' : 'Add customer')}</button>
-=======
             <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Adding…' : 'Add customer'}</button>
->>>>>>> smtp-changes
           </div>
         </form>
       </section>
@@ -1300,11 +1236,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
               <select name="invoice">
                 <option value="">No allocation</option>
                 {custInvoices.map(i => (
-<<<<<<< HEAD
-                  <option key={i.id} value={i.id}>{i.invoice_number} � {money(i.balance_minor)} outstanding</option>
-=======
                   <option key={i.id} value={i.id}>{i.invoice_number} — {money(i.balance_minor)} outstanding</option>
->>>>>>> smtp-changes
                 ))}
               </select>
             </label>
@@ -1327,11 +1259,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-<<<<<<< HEAD
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Recording�' : 'Record payment'}</button>
-=======
             <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Recording…' : 'Record payment'}</button>
->>>>>>> smtp-changes
           </div>
         </form>
       </section>
@@ -1506,26 +1434,16 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
       {tab === 'products' && (
         <div className="table-wrap">
           <div style={{ padding: '12px 20px' }}>
-<<<<<<< HEAD
-            <div className="search"><Search size={15} /><input placeholder="Search products�" value={query} onChange={e => setQuery(e.target.value)} /></div>
-=======
             <div className="search"><Search size={15} /><input placeholder="Search products…" value={query} onChange={e => setQuery(e.target.value)} /></div>
->>>>>>> smtp-changes
           </div>
           <table>
             <thead><tr><th>PRODUCT</th><th>SKU</th><th>HSN/SAC</th><th>PRICE</th><th>DEFAULT GST</th><th>STATUS</th><th></th></tr></thead>
             <tbody>
               {filteredProducts.map(p => (
                 <tr key={p.id}>
-<<<<<<< HEAD
-                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} � {p.description?.slice(0, 40)}</div></td>
-                  <td>{p.sku || '�'}</td>
-                  <td>{p.hsn_sac || '�'}</td>
-=======
                   <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} · {p.description?.slice(0, 40)}</div></td>
                   <td>{p.sku || '—'}</td>
                   <td>{p.hsn_sac || '—'}</td>
->>>>>>> smtp-changes
                   <td className="amount">{money(p.price_minor)}</td>
                   <td>{p.default_gst_rate_bps ? `${p.default_gst_rate_name} (${p.default_gst_rate_bps / 100}%)` : 'No GST'}</td>
                   <td>{p.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
@@ -1551,11 +1469,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
                   <td className="strong">{r.name}</td>
                   <td className="amount">{r.rate_percent}</td>
                   <td style={{ fontSize: 10 }}>{r.preview}</td>
-<<<<<<< HEAD
-                  <td>{r.in_use ? <span className="status issued">Yes</span> : '�'}</td>
-=======
                   <td>{r.in_use ? <span className="status issued">Yes</span> : '—'}</td>
->>>>>>> smtp-changes
                   <td>{r.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="icon-btn" title="Edit" onClick={() => onOpenRateModal(r)}><Pencil size={14} /></button>
@@ -1567,11 +1481,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
           </table>
           {gstRates.length === 0 && <div className="empty">No GST rates yet. Add your first rate.</div>}
           {gstRates.some(r => r.in_use && !r.active) && (
-<<<<<<< HEAD
-            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices � they are preserved as snapshots.</div>
-=======
             <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices — they are preserved as snapshots.</div>
->>>>>>> smtp-changes
           )}
         </div>
       )}
@@ -2436,7 +2346,6 @@ export default function App() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [editingRate, setEditingRate] = useState<GSTRate | null>(null)
   const [notice, setNotice] = useState('')
   const [query, setQuery] = useState('')
@@ -2458,11 +2367,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [gstRates, setGstRates] = useState<GSTRate[]>([])
   const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
-<<<<<<< HEAD
-  // FORECAST DISABLED � uncomment to re-enable
-=======
   // FORECAST DISABLED — uncomment to re-enable
->>>>>>> smtp-changes
   // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -2556,11 +2461,7 @@ export default function App() {
     setCustomers([])
     setPayments([])
     setAging(null)
-<<<<<<< HEAD
-    // FORECAST DISABLED � uncomment to re-enable
-=======
     // FORECAST DISABLED — uncomment to re-enable
->>>>>>> smtp-changes
     // setForecast(null)
     setNotifications([])
     setUnreadCount(0)
@@ -2573,11 +2474,7 @@ export default function App() {
     try {
       await api.logout(org?.id)
     } catch {
-<<<<<<< HEAD
-      // Proceed even if backend call fails � clear client state regardless
-=======
       // Proceed even if backend call fails — clear client state regardless
->>>>>>> smtp-changes
     }
     broadcastLogout()
     clearAuth()
@@ -2596,11 +2493,7 @@ export default function App() {
   useEffect(() => {
     const unsub = subscribeLogoutChannel(() => {
       clearAuth()
-<<<<<<< HEAD
-      // No toast here � only the initiating tab shows "Logged out successfully"
-=======
       // No toast here — only the initiating tab shows "Logged out successfully"
->>>>>>> smtp-changes
     })
     return unsub
   }, [clearAuth])
@@ -2656,17 +2549,10 @@ export default function App() {
     { name: 'Products', icon: Package },
     { name: 'Payments', icon: Wallet },
     { name: 'Aging report', icon: Clock3 },
-<<<<<<< HEAD
-    { name: 'Reminders', icon: Bell, soon: true },
-    // RECONCILIATION DISABLED � uncomment to re-enable
-    // { name: 'Reconciliation', icon: GitMerge, soon: true },
-    // FORECAST DISABLED � uncomment to re-enable
-=======
     { name: 'Reminders', icon: Bell },
     // RECONCILIATION DISABLED — uncomment to re-enable
     // { name: 'Reconciliation', icon: GitMerge, soon: true },
     // FORECAST DISABLED — uncomment to re-enable
->>>>>>> smtp-changes
     // { name: 'Forecast', icon: TrendingUp },
     { name: 'AI Assistant', icon: Bot },
   ]
@@ -2718,11 +2604,7 @@ export default function App() {
             <Bell size={17} />Notifications
             {unreadCount > 0 && <span className="soon">{unreadCount}</span>}
           </button>
-<<<<<<< HEAD
-          {/* AUDIT LOG DISABLED � uncomment to re-enable */}
-=======
           {/* AUDIT LOG DISABLED — uncomment to re-enable */}
->>>>>>> smtp-changes
           {/* <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button> */}
           <button className="nav-item" onClick={() => setPage('Settings')}><Settings2 size={17} />Settings</button>
           <div className="profile">
@@ -2736,11 +2618,7 @@ export default function App() {
             disabled={loggingOut}
             aria-label="Sign out"
           >
-<<<<<<< HEAD
-            <LogOut size={15} /><span>{loggingOut ? 'Signing out�' : 'Sign out'}</span>
-=======
             <LogOut size={15} /><span>{loggingOut ? 'Signing out…' : 'Sign out'}</span>
->>>>>>> smtp-changes
           </button>
         </div>
       </aside>
@@ -2755,11 +2633,7 @@ export default function App() {
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
             <button className="icon-btn" title="Help"><CircleHelp size={18} /></button>
-<<<<<<< HEAD
-            {/* Mobile logout � hidden on desktop via CSS class */}
-=======
             {/* Mobile logout — hidden on desktop via CSS class */}
->>>>>>> smtp-changes
             <button
               className="icon-btn logout-btn-mobile"
               title="Sign out"
@@ -2818,15 +2692,9 @@ export default function App() {
                 <div className="aging-list">
                   {[
                     ['Not yet due', 'not_yet_due', 'blue'],
-<<<<<<< HEAD
-                    ['1�30 days', 'days_1_30', 'green'],
-                    ['31�60 days', 'days_31_60', 'amber'],
-                    ['61�90 days', 'days_61_90', 'orange'],
-=======
                     ['1–30 days', 'days_1_30', 'green'],
                     ['31–60 days', 'days_31_60', 'amber'],
                     ['61–90 days', 'days_61_90', 'orange'],
->>>>>>> smtp-changes
                     ['Over 90 days', 'over_90', 'rose'],
                   ].map(([title, key, tone]) => (
                     <div className="aging-row" key={key}>
@@ -2970,11 +2838,7 @@ export default function App() {
                                     <td className="amount">{money(inv.total_minor)}</td>
                                     <td className="amount">{money(inv.paid_minor)}</td>
                                     <td className="amount">{money(inv.balance_minor)}</td>
-<<<<<<< HEAD
-                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : '�'}</td>
-=======
                                     <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : '—'}</td>
->>>>>>> smtp-changes
                                     <td><StatusBadge s={inv.display_status} /></td>
                                   </tr>
                                 )
@@ -2994,11 +2858,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>All invoices</h2><p>{filtered.length} invoices in your workspace</p></div>
                 <div className="toolbar">
-<<<<<<< HEAD
-                  <div className="search"><Search size={15} /><input placeholder="Search invoices�" value={query} onChange={e => setQuery(e.target.value)} /></div>
-=======
                   <div className="search"><Search size={15} /><input placeholder="Search invoices…" value={query} onChange={e => setQuery(e.target.value)} /></div>
->>>>>>> smtp-changes
                   <select className="status-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">All statuses</option><option value="overdue">Overdue</option><option value="issued">Unpaid</option><option value="partially_paid">Partially Paid</option><option value="paid">Paid</option><option value="draft">Draft</option></select>
                   <a href={`/api/v1/exports/invoices/?`} className="secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 7, padding: '9px 13px', border: '1px solid #e4e9e6', fontSize: 12, fontWeight: 600, color: '#52615a', background: '#fff' }} onClick={e => { e.preventDefault(); fetch(`/api/v1/exports/invoices/`, { credentials: 'include', headers: { 'X-Organization-ID': org.id } }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'invoices.csv'; a.click() }) }}>
                     <Download size={15} /> Export
@@ -3016,42 +2876,24 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>Customers</h2><p>{customers.length} customers</p></div>
                 <div className="toolbar">
-<<<<<<< HEAD
-                  <div className="search"><Search size={15} /><input placeholder="Search�" value={query} onChange={e => setQuery(e.target.value)} /></div>
-=======
                   <div className="search"><Search size={15} /><input placeholder="Search…" value={query} onChange={e => setQuery(e.target.value)} /></div>
->>>>>>> smtp-changes
                   <button className="primary" onClick={() => setModal('customer')}><Plus size={16} /> Add customer</button>
                 </div>
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>PHONE</th><th>OPEN INVOICES</th><th>OUTSTANDING</th><th>OPT-OUT</th><th>ACTIONS</th></tr></thead>
+                  <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>PHONE</th><th>OPEN INVOICES</th><th>OUTSTANDING</th><th>OPT-OUT</th></tr></thead>
                   <tbody>
                     {customers.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).map(c => {
                       const open = invoices.filter(i => i.customer === c.id && i.balance_minor > 0)
                       return (
                         <tr key={c.id}>
                           <td className="strong">{c.name}</td>
-<<<<<<< HEAD
-                          <td>{c.email || '�'}</td>
-                          <td>{c.phone || '�'}</td>
-=======
                           <td>{c.email || '—'}</td>
                           <td>{c.phone || '—'}</td>
->>>>>>> smtp-changes
                           <td>{open.length}</td>
                           <td className="amount">{money(open.reduce((a, x) => a + x.balance_minor, 0))}</td>
                           <td>{c.opt_out ? <span className="status overdue">Opted out</span> : <span className="status paid">Active</span>}</td>
-                            <td>
-                              <button 
-                                className="icon-btn" 
-                                onClick={() => { setEditingCustomer(c); setModal('customer') }}
-                                title="Edit customer"
-                              >
-                                <Pencil size={15} />
-                              </button>
-                            </td>
                         </tr>
                       )
                     })}
@@ -3076,21 +2918,12 @@ export default function App() {
                     {payments.map(p => (
                       <tr key={p.id}>
                         <td>{fmtDate(p.payment_date)}</td>
-<<<<<<< HEAD
-                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || '�'}</td>
-                        <td className="amount">{money(p.amount_minor)}</td>
-                        <td>{p.method.replace(/_/g, ' ')}</td>
-                        <td>{p.reference || '�'}</td>
-                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || '�'}</td>
-                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : '�'}</td>
-=======
                         <td className="strong">{customers.find(c => c.id === p.customer)?.name || '—'}</td>
                         <td className="amount">{money(p.amount_minor)}</td>
                         <td>{p.method.replace(/_/g, ' ')}</td>
                         <td>{p.reference || '—'}</td>
                         <td>{p.allocations.map(a => a.invoice_number).join(', ') || '—'}</td>
                         <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : '—'}</td>
->>>>>>> smtp-changes
                       </tr>
                     ))}
                   </tbody>
@@ -3104,31 +2937,18 @@ export default function App() {
           {page === 'Aging report' && (
             <div className="panel">
               <div className="panel-head">
-<<<<<<< HEAD
-                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} � Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
-=======
                 <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} · Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
->>>>>>> smtp-changes
                 <button className="secondary" onClick={() => org && api.aging(org.id).then(setAging)}><RefreshCw size={15} /> Refresh</button>
               </div>
               {(['not_yet_due', 'days_1_30', 'days_31_60', 'days_61_90', 'over_90'] as const).map(key => {
                 const rows = aging?.buckets?.[key] || []
                 const labels: Record<string, string> = {
-<<<<<<< HEAD
-                  not_yet_due: 'Not yet due', days_1_30: '1�30 days overdue',
-                  days_31_60: '31�60 days overdue', days_61_90: '61�90 days overdue', over_90: 'Over 90 days overdue',
-                }
-                return (
-                  <div className="aging-section" key={key}>
-                    <h3>{labels[key]} � {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
-=======
                   not_yet_due: 'Not yet due', days_1_30: '1–30 days overdue',
                   days_31_60: '31–60 days overdue', days_61_90: '61–90 days overdue', over_90: 'Over 90 days overdue',
                 }
                 return (
                   <div className="aging-section" key={key}>
                     <h3>{labels[key]} — {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
->>>>>>> smtp-changes
                     {rows.length ? rows.map(r => (
                       <div className="aging-invoice" key={r.id}>
                         <b>{r.invoice_number}</b>
@@ -3143,25 +2963,16 @@ export default function App() {
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* -- Forecast -- DISABLED � uncomment to re-enable */}
-=======
           {/* -- Forecast -- DISABLED — uncomment to re-enable */}
->>>>>>> smtp-changes
           {/* {page === 'Forecast' && (
-            <ForecastPage orgId={org.id}
-            editing={editingCustomer} />
+            <ForecastPage orgId={org.id} />
           )} */}
 
           {/* -- AI Assistant -- */}
           {page === 'AI Assistant' && (
             <div className="panel ai-panel">
               <div className="panel-head">
-<<<<<<< HEAD
-                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord � answers are based on your live data.</p></div>
-=======
                 <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord — answers are based on your live data.</p></div>
->>>>>>> smtp-changes
               </div>
               <div className="ai-body">
                 <div className="ai-disclaimer">
@@ -3176,19 +2987,11 @@ export default function App() {
                     className="ai-input"
                   />
                   <button className="primary" disabled={asking || !question.trim()}>
-<<<<<<< HEAD
-                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking�</> : <><Bot size={15} /> Ask</>}
-                  </button>
-                </form>
-
-                {/* Error banner � shown instead of the answer box */}
-=======
                     {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking…</> : <><Bot size={15} /> Ask</>}
                   </button>
                 </form>
 
                 {/* Error banner — shown instead of the answer box */}
->>>>>>> smtp-changes
                 {aiError && (
                   <div className={`ai-error-banner ${aiError.type === 'llm_quota_exceeded' ? 'ai-error-quota' : 'ai-error-generic'}`}>
                     <div className="ai-error-header">
@@ -3203,11 +3006,7 @@ export default function App() {
                   </div>
                 )}
 
-<<<<<<< HEAD
-                {/* Answer box � only shown on success */}
-=======
                 {/* Answer box — only shown on success */}
->>>>>>> smtp-changes
                 {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
@@ -3257,14 +3056,8 @@ export default function App() {
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* -- Audit log -- DISABLED � uncomment to re-enable */}
-          {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id}
-            editing={editingCustomer} />} */}
-=======
           {/* -- Audit log -- DISABLED — uncomment to re-enable */}
           {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id} />} */}
->>>>>>> smtp-changes
 
           {/* -- Settings -- */}
           {page === 'Settings' && (
@@ -3284,8 +3077,7 @@ export default function App() {
           {/* -- Products -- */}
           {page === 'Products' && org && (
             <ProductsPage
-              orgId={org.id}
-              products={products} gstRates={gstRates}
+              orgId={org.id} products={products} gstRates={gstRates}
               onReload={() => loadData(org)}
               onOpenProductModal={p => { setEditingProduct(p); setModal('product') }}
               onOpenRateModal={r => { setEditingRate(r); setModal('gstrate') }}
@@ -3293,21 +3085,6 @@ export default function App() {
           )}
 
           {/* -- Reminders / Reconciliation (coming soon) -- */}
-<<<<<<< HEAD
-          {/* RECONCILIATION DISABLED � uncomment `|| page === 'Reconciliation'` to re-enable */}
-          {(page === 'Reminders' /* || page === 'Reconciliation' */) && (
-            <div className="coming">
-              <div className="coming-icon"><Activity size={24} /></div>
-              <div className="eyebrow">ON THE ROADMAP</div>
-              <h2>{page} is being prepared</h2>
-              <p>The backend models, policies, and APIs for {page.toLowerCase()} are fully implemented. The review screens are coming next.</p>
-              <button className="secondary" onClick={() => setPage('Overview')}>Back to overview</button>
-            </div>
-          )}
-
-          <footer>
-            FinPilot AI <span>�</span> INR reporting <span>�</span> Data as of {dashboard?.as_of || 'today'}
-=======
           {/* RECONCILIATION DISABLED — uncomment `|| page === 'Reconciliation'` to re-enable */}
           {(page === 'Reminders' && org) && (
             <RemindersPage org={org} />
@@ -3315,7 +3092,6 @@ export default function App() {
 
           <footer>
             FinPilot AI <span>·</span> INR reporting <span>·</span> Data as of {dashboard?.as_of || 'today'}
->>>>>>> smtp-changes
             <span className="footer-right">Questions? <a href="mailto:support@finpilot.ai">Talk to our team</a></span>
           </footer>
         </section>
@@ -3340,12 +3116,10 @@ export default function App() {
         />
       )}
       {modal === 'customer' && org && (
-        <CustomerModal orgId={org.id}
-            editing={editingCustomer} onClose={() => { setModal(''); setEditingCustomer(null) }} onCreated={() => loadData(org)} />
+        <CustomerModal orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
       )}
       {modal === 'payment' && org && (
-        <PaymentModal customers={customers} invoices={invoices} orgId={org.id}
-          onClose={() => { setModal(''); setEditingCustomer(null) }} onCreated={() => loadData(org)} />
+        <PaymentModal customers={customers} invoices={invoices} orgId={org.id} onClose={() => setModal('')} onCreated={() => loadData(org)} />
       )}
       {modal === 'product' && org && (
         <ProductModal
@@ -3400,11 +3174,7 @@ export default function App() {
                 aria-busy={loggingOut}
                 data-testid="confirm-logout-btn"
               >
-<<<<<<< HEAD
-                <LogOut size={15} />{loggingOut ? 'Signing out�' : 'Sign out'}
-=======
                 <LogOut size={15} />{loggingOut ? 'Signing out…' : 'Sign out'}
->>>>>>> smtp-changes
               </button>
             </div>
           </section>
@@ -3414,11 +3184,7 @@ export default function App() {
   )
 }
 
-<<<<<<< HEAD
-// -- Forecast page component -- DISABLED � uncomment to re-enable -------------
-=======
 // -- Forecast page component -- DISABLED — uncomment to re-enable -------------
->>>>>>> smtp-changes
 /*
 function ForecastPage({ orgId }: { orgId: string }) {
   const [period, setPeriod] = useState<7 | 30 | 60>(30)
@@ -3434,11 +3200,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
   return (
     <div className="panel">
       <div className="panel-head">
-<<<<<<< HEAD
-        <div><h2>Cash inflow forecast</h2><p>Expected receivables � not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
-=======
         <div><h2>Cash inflow forecast</h2><p>Expected receivables — not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
->>>>>>> smtp-changes
         <div className="toolbar">
           <select value={period} onChange={e => setPeriod(Number(e.target.value) as 7 | 30 | 60)} style={{ height: 34, borderRadius: 7, border: '1px solid #e3e8e5', padding: '0 9px', fontSize: 12 }}>
             <option value={7}>7 days</option>
@@ -3451,11 +3213,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </select>
         </div>
       </div>
-<<<<<<< HEAD
-      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecast�</div>}
-=======
       {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecast…</div>}
->>>>>>> smtp-changes
       {data && !loading && (
         <div style={{ padding: '0 24px 20px' }}>
           {data.insufficient_history && (
@@ -3475,15 +3233,9 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </div>
           <div style={{ fontSize: 11, color: '#9aa39e', marginTop: 12, borderTop: '1px solid #f0f2f1', paddingTop: 12 }}>
             <strong>Assumptions:</strong>{' '}
-<<<<<<< HEAD
-            Timing: {String(data.assumptions.timing_assumption)}{' '}�{' '}
-            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}�{' '}
-            Base offset: {String(data.assumptions.base_offset_days)} days{' '}�{' '}
-=======
             Timing: {String(data.assumptions.timing_assumption)}{' '}·{' '}
             Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}·{' '}
             Base offset: {String(data.assumptions.base_offset_days)} days{' '}·{' '}
->>>>>>> smtp-changes
             Optimistic offset: {String(data.assumptions.optimistic_offset_days)} days
           </div>
         </div>
@@ -3493,11 +3245,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
 }
 */
 
-<<<<<<< HEAD
-// -- Audit log page -- DISABLED � uncomment to re-enable ---------------------
-=======
 // -- Audit log page -- DISABLED — uncomment to re-enable ---------------------
->>>>>>> smtp-changes
 /*
 function AuditLogPage({ orgId }: { orgId: string }) {
   const [logs, setLogs] = useState<import('./lib/api').AuditLog[]>([])
