@@ -1746,11 +1746,11 @@ function RemindersPage({ org }: { org: Org }) {
     setLoading(true)
     setError('')
     try {
-      await api.approveReminderJob(org.id, previewJob.id, {
+      const res = await api.approveReminderJob(org.id, previewJob.id, {
         custom_intro: customIntro,
         custom_closing: customClosing,
       })
-      setSuccess('Reminder approved and queued for sending')
+      setSuccess(res.detail || 'Reminder approved and queued for sending')
       setShowPreviewModal(false)
       setPreviewJob(null)
       await loadJobs(view === 'pending' ? 'proposed' : view === 'sent' ? 'dispatched' : 'failed')

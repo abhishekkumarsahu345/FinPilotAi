@@ -58,18 +58,24 @@ Write-Host ""
 Write-Host "=================================" -ForegroundColor Cyan
 Write-Host "📝 Next Steps:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "   1. Open TWO separate PowerShell terminals" -ForegroundColor White
+Write-Host "   1. Open THREE separate PowerShell terminals" -ForegroundColor White
 Write-Host ""
 Write-Host "   Terminal 1 (Backend):" -ForegroundColor Yellow
 Write-Host "   cd 'c:\Users\abhis\OneDrive\Documents\ChatGPT\FinPilot AI\backend'" -ForegroundColor Gray
 Write-Host "   .\restart-server.ps1" -ForegroundColor Gray
 Write-Host ""
-Write-Host "   Terminal 2 (Frontend):" -ForegroundColor Yellow
+Write-Host "   Terminal 2 (Celery Worker - REQUIRED for email notifications):" -ForegroundColor Yellow
+Write-Host "   cd 'c:\Users\abhis\OneDrive\Documents\ChatGPT\FinPilot AI\backend'" -ForegroundColor Gray
+Write-Host "   .\start-celery-worker.ps1" -ForegroundColor Gray
+Write-Host ""
+Write-Host "   Terminal 3 (Frontend):" -ForegroundColor Yellow
 Write-Host "   cd 'c:\Users\abhis\OneDrive\Documents\ChatGPT\FinPilot AI\frontend'" -ForegroundColor Gray
 Write-Host "   npm run dev" -ForegroundColor Gray
 Write-Host ""
 Write-Host "   2. Open browser: http://localhost:5173" -ForegroundColor Yellow
 Write-Host "   3. Hard refresh: Ctrl+Shift+R" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "   ⚠️  IMPORTANT: Without the Celery worker, email notifications will NOT be sent!" -ForegroundColor Red
 Write-Host ""
 Write-Host "=================================" -ForegroundColor Cyan
 Write-Host ""

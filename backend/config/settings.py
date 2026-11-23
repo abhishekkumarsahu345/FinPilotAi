@@ -146,6 +146,9 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_ENABLE_UTC = True
+# In development, run tasks synchronously (no worker needed)
+# In production, set CELERY_TASK_ALWAYS_EAGER=false and run a Celery worker
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() == "true"
 
 # File storage (S3-compatible / MinIO)
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "finpilot-local")

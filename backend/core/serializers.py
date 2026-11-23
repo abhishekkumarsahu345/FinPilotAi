@@ -1,5 +1,5 @@
 import re
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from rest_framework import serializers
 from .models import (
@@ -8,6 +8,40 @@ from .models import (
 )
 
 GSTIN_RE = re.compile(r"^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def get_next_invoice_number(organization):
+    """
+    Returns the next available invoice number for an organization.
+    
+    Finds the highest numeric invoice number and adds 1. If no invoices exist,
+    returns "1". Falls back to returning None if invoice numbers aren't numeric.
+    """
+    last_invoice = (
+        Invoice.objects
+        .filter(organization=organization)
+        .order_by("-invoice_number")
+        .values_list("invoice_number", flat=True)
+        .first()
+    )
+    
+    if not last_invoice:
+        return "1"
+    
+    # Try to extract a number from the invoice number
+    # Handle patterns like "INV-123", "123", "2024-123", etc.
+    import re
+    numbers = re.findall(r'\d+', last_invoice)
+    if numbers:
+        # Take the last number found and increment it
+        last_num = int(numbers[-1])
+        return str(last_num + 1)
+    
+    return None  # Can't determine next number
 
 
 # ---------------------------------------------------------------------------
@@ -357,30 +391,43 @@ class InvoiceSerializer(serializers.ModelSerializer):
         data.pop("_has_items", False)
         items_data = data.pop("items", [])
         req = self.context["request"]
-        with transaction.atomic():
-            invoice = Invoice.objects.create(
-                organization=req.membership.organization,
-                created_by=req.user,
-                total_minor=total,
-                **data,
-            )
-            invoice._gst_warning = gst_warning
-            for idx, item_data in enumerate(items_data):
-                item_data["sort_order"] = idx
-                InvoiceItem.objects.create(
-                    organization=invoice.organization,
-                    invoice=invoice,
-                    **item_data,
+        
+        try:
+            with transaction.atomic():
+                invoice = Invoice.objects.create(
+                    organization=req.membership.organization,
+                    created_by=req.user,
+                    total_minor=total,
+                    **data,
                 )
-            AuditLog.objects.create(
-                organization=invoice.organization,
-                actor=req.user,
-                action="invoice.created",
-                entity_type="invoice",
-                entity_id=str(invoice.id),
-                summary=f"Created invoice {invoice.invoice_number}",
-            )
-        return invoice
+                invoice._gst_warning = gst_warning
+                for idx, item_data in enumerate(items_data):
+                    item_data["sort_order"] = idx
+                    InvoiceItem.objects.create(
+                        organization=invoice.organization,
+                        invoice=invoice,
+                        **item_data,
+                    )
+                AuditLog.objects.create(
+                    organization=invoice.organization,
+                    actor=req.user,
+                    action="invoice.created",
+                    entity_type="invoice",
+                    entity_id=str(invoice.id),
+                    summary=f"Created invoice {invoice.invoice_number}",
+                )
+            return invoice
+        except IntegrityError as e:
+            # Check if this is a duplicate invoice number error
+            if 'unique_invoice_number_per_org' in str(e):
+                invoice_number = data.get('invoice_number', 'unknown')
+                next_number = get_next_invoice_number(req.membership.organization)
+                suggestion = f" Try using '{next_number}' instead." if next_number else ""
+                raise serializers.ValidationError({
+                    "invoice_number": f"Invoice number '{invoice_number}' already exists in your organization.{suggestion}"
+                })
+            # Re-raise if it's a different integrity error
+            raise
 
     def update(self, instance, data):
         total = data.pop("_calculated_total")
