@@ -6,6 +6,8 @@ from datetime import date
 from typing import Dict, Any, List, Tuple
 from decimal import Decimal
 
+from core.formatting import fmt_qty
+
 
 def money_display(paise: int) -> str:
     """Convert paise to rupees display format."""
@@ -39,7 +41,7 @@ def build_invoice_context(invoice, customer, organization) -> Dict[str, Any]:
     for item in invoice.items.all().order_by('sort_order'):
         line_items.append({
             'description': item.description,
-            'quantity': str(item.quantity),
+            'quantity': fmt_qty(item.quantity),
             'unit_price': money_display(item.unit_price_minor),
             'line_total': money_display(item.line_total_minor),
             'gst_rate_bps': item.gst_rate_bps,
@@ -156,26 +158,36 @@ def render_html_email_body(context: Dict[str, Any], tone: str = 'friendly') -> s
     if context['line_items']:
         rows = ""
         for item in context['line_items']:
-            gst_info = f" <small>(+GST {item['gst_rate_bps']/100:.2f}%)</small>" if item.get('gst_tax') else ""
+            # GST label shown as a subdued note below the amount, not crammed inline.
+            gst_note = (
+                f'<br><small style="color:#6b7280;">incl. GST {item["gst_rate_bps"] / 100:.4g}%</small>'
+                if item.get('gst_tax') else ""
+            )
             rows += f"""
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">{item['description']}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">{item['quantity']}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">{item['unit_price']}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;"><strong>{item['line_total']}</strong>{gst_info}</td>
+                <td style="padding: 8px 10px; border-bottom: 1px solid #e5e7eb; word-break: break-word; max-width: 260px;">{item['description']}</td>
+                <td style="padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap;">{item['quantity']}</td>
+                <td style="padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap;">{item['unit_price']}</td>
+                <td style="padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: right; white-space: nowrap;"><strong>{item['line_total']}</strong>{gst_note}</td>
             </tr>
             """
-        
+
         line_items_html = f"""
         <div style="margin: 24px 0;">
             <h3 style="color: #374151; margin-bottom: 12px;">Invoice Items</h3>
-            <table style="width: 100%; border-collapse: collapse; background: white; border: 1px solid #e5e7eb;">
+            <table style="width: 100%; border-collapse: collapse; background: white; border: 1px solid #e5e7eb; table-layout: fixed;">
+                <colgroup>
+                    <col style="width: 44%;">
+                    <col style="width: 10%;">
+                    <col style="width: 20%;">
+                    <col style="width: 26%;">
+                </colgroup>
                 <thead>
                     <tr style="background: #f9fafb;">
-                        <th style="padding: 10px 8px; border-bottom: 2px solid #d1d5db; text-align: left;">Description</th>
-                        <th style="padding: 10px 8px; border-bottom: 2px solid #d1d5db; text-align: center;">Qty</th>
-                        <th style="padding: 10px 8px; border-bottom: 2px solid #d1d5db; text-align: right;">Unit Price</th>
-                        <th style="padding: 10px 8px; border-bottom: 2px solid #d1d5db; text-align: right;">Amount</th>
+                        <th style="padding: 10px 10px; border-bottom: 2px solid #d1d5db; text-align: left;">Description</th>
+                        <th style="padding: 10px 10px; border-bottom: 2px solid #d1d5db; text-align: right;">Qty</th>
+                        <th style="padding: 10px 10px; border-bottom: 2px solid #d1d5db; text-align: right;">Unit Price</th>
+                        <th style="padding: 10px 10px; border-bottom: 2px solid #d1d5db; text-align: right;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>

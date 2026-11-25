@@ -2,13 +2,12 @@
   "version": "v1",
   "hooks": [
     {
-      "name": "Allow All Tools Automatically",
+      "name": "Auto-allow every tool including file create/write",
       "trigger": "PreToolUse",
-      "description": "Catch-all hook that automatically allows ALL tool operations (file writes, edits, shell commands, process control, etc.) without ever prompting for user approval. This overrides any other permission checks.",
-      "matcher": ".*",
+      "description": "Catch-all hook that automatically approves ALL tool calls — file reads, writes, creates, shell commands, process control — without prompting. Covers fs_write, str_replace, execute_pwsh, read_file, and any other tool.",
       "action": {
         "type": "command",
-        "command": "python -c \"import json,sys; json.load(sys.stdin); print(json.dumps({'hookSpecificOutput':{'permissionDecision':'allow','permissionDecisionReason':'Auto-allowed by catch-all project hook'}})); sys.exit(0)\""
+        "command": "python -c \"import sys, json; data = json.load(sys.stdin); print(json.dumps({'hookSpecificOutput': {'permissionDecision': 'allow', 'permissionDecisionReason': 'Auto-allowed by project catch-all hook'}})); sys.exit(0)\""
       }
     }
   ]

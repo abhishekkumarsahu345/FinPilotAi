@@ -133,6 +133,25 @@ export const money = (minor: number, currency = 'INR') =>
 export const fmtDate = (value: string) =>
   new Date(value + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
+/**
+ * Format a quantity for display — mirrors the backend core.formatting.fmt_qty rule:
+ *   whole numbers → no decimal point  (5.0000 → "5")
+ *   fractions     → trailing zeros removed  (2.5000 → "2.5", 0.75 → "0.75")
+ *   null / NaN    → "0"
+ * This is display-only; it never affects stored values or calculations.
+ */
+export function fmtQty(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '0'
+  const n = typeof value === 'string' ? parseFloat(value) : value
+  if (!isFinite(n)) return '0'
+  if (n === 0) return '0'
+  // Use toPrecision-free approach: convert via string to strip trailing zeros.
+  // We allow up to 4 decimal places (matches the DB decimal_places=4).
+  const fixed = n.toFixed(4)           // "5.0000", "2.5000", "0.7500"
+  const stripped = fixed.replace(/\.?0+$/, '')  // "5", "2.5", "0.75"
+  return stripped === '' || stripped === '-' ? '0' : stripped
+}
+
 function getCookie(name: string): string {
   return document.cookie.split('; ').find(x => x.startsWith(name + '='))?.split('=').slice(1).join('=') ?? ''
 }

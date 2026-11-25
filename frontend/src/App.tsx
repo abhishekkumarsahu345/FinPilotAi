@@ -9,7 +9,7 @@ import {
   Package, Pencil, Power, Percent, Tag,
 } from 'lucide-react'
 import {
-  api, ApiError, money, fmtDate,
+  api, ApiError, money, fmtDate, fmtQty,
   setUnauthenticatedHandler, broadcastLogout, subscribeLogoutChannel,
   type User, type Org, type Invoice, type Customer,
   type Payment, type DashboardData, type AgingData, /*type ForecastData,*/ type Notification,
@@ -818,7 +818,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
                       <div className="invoice-modern-product">{item.description}</div>
                       {item.hsn_sac && <div className="invoice-modern-product-meta">HSN/SAC: {item.hsn_sac}</div>}
                     </td>
-                    <td style={{textAlign: 'right'}}>{item.quantity}</td>
+                    <td style={{textAlign: 'right'}}>{fmtQty(item.quantity)}</td>
                     <td style={{textAlign: 'right'}}>{money(item.unit_price_minor)}</td>
                     <td style={{textAlign: 'right'}} className="invoice-modern-amount">{money(item.line_total_minor + item.gst_tax_minor)}</td>
                   </tr>
@@ -874,7 +874,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
   const [lines, setLines] = useState<InvoiceLine[]>(
     (editing?.items?.length
       ? editing.items.map(it => ({
-          product: it.product || '', description: it.description, quantity: String(it.quantity),
+          product: it.product || '', description: it.description, quantity: fmtQty(it.quantity),
           unit_price_minor: String(it.unit_price_minor), discount_minor: String(it.discount_minor),
           gst_rate_bps: it.gst_rate_bps, gst_rate_name: it.gst_rate_name, hsn_sac: it.hsn_sac,
         }))
