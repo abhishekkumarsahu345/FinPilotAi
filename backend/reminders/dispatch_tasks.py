@@ -207,6 +207,13 @@ def dispatch_reminder_email(self, job_id: str):
                         event_type=Notification.EventType.REMINDER_FAILED,
                         entity_type="reminder_job",
                         entity_id=str(job.id),
+                        defaults={
+                            "payload": {
+                                "invoice_number": inv.invoice_number,
+                                "customer_name": customer.name,
+                                "block_reason": "Email delivery failed after retries",
+                            }
+                        },
                     )
             except Exception:
                 pass

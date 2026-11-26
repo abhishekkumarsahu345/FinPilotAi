@@ -151,7 +151,13 @@ def schedule_reminders():
                                     event_type=Notification.EventType.REMINDER_AWAITING_APPROVAL,
                                     entity_type="reminder_job",
                                     entity_id=str(job.id),
-                                    defaults={"payload": {"invoice_number": inv.invoice_number}},
+                                    defaults={
+                                        "payload": {
+                                            "invoice_number": inv.invoice_number,
+                                            "customer_name": customer.name,
+                                            "step_label": f"Step {policy.name}",
+                                        }
+                                    },
                                 )
                         except Exception as e:
                             logger.warning(f"Failed to create notification for job {job.id}: {e}")

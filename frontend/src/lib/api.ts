@@ -1,5 +1,5 @@
-﻿/**
- * API client â€” handles CSRF, org header, and error normalization.
+/**
+ * API client — handles CSRF, org header, and error normalization.
  * All financial amounts from the API are integer Minor_Units (paise).
  */
 
@@ -51,6 +51,7 @@ export type Invoice = {
   tax_minor: number; total_minor: number; status: string
   paid_minor: number; balance_minor: number; display_status: string
   items: InvoiceItem[]; gst_summary: GstSummary; gst_warning: string
+  reminder_schedule: string | null; reminder_schedule_name: string; no_reminders: boolean
   created_at: string
 }
 export type Payment = {
@@ -59,20 +60,65 @@ export type Payment = {
   allocations: { id: string; invoice: string; invoice_number: string; amount_minor: number }[]
   unallocated_minor: number; created_at: string
 }
-// AUDIT LOG DISABLED â€” uncomment to re-enable
+// AUDIT LOG DISABLED — uncomment to re-enable
 // export type AuditLog = {
 //   id: number; action: string; entity_type: string; entity_id: string
 //   summary: string; actor_name: string; created_at: string
 // }
+export type NotificationDetails = {
+  // reminder_approval / reminder_failed
+  customer_name?: string
+  invoice_number?: string
+  outstanding_minor?: number
+  due_date?: string
+  days_overdue?: number
+  step_label?: string
+  job_status?: string
+  block_reason?: string
+  // import_complete / import_failed
+  file_name?: string
+  batch_type?: string
+  rows_created?: number
+  rows_rejected?: number
+  status?: string
+  // reconciliation_review
+  unmatched_count?: number
+  suggested_count?: number
+  // fallback
+  error?: string
+}
+
 export type Notification = {
-  id: string; event_type: string; entity_type: string; entity_id: string
-  payload: Record<string, unknown>; read: boolean; created_at: string
+  id: string
+  event_type: string
+  entity_type: string
+  entity_id: string
+  payload: Record<string, unknown>
+  details: NotificationDetails
+  read: boolean
+  created_at: string
+}
+export type ReminderTemplate = {
+  id: string; name: string; channel: 'email' | 'whatsapp'
+  subject: string; body: string; active: boolean
+  pending_revision: boolean; created_at: string; updated_at: string
+}
+export type ScheduleStepInput = {
+  basis: 'issue' | 'due'
+  kind: 'on' | 'before' | 'after'
+  days: number
+  template: string
 }
 export type ReminderSchedule = {
-  id: string; name: string; enabled: boolean
+  id: string; name: string; enabled: boolean; is_default: boolean; archived: boolean
   send_hour_start: number; send_hour_end: number
   skip_weekdays: number[]; excluded_customer_ids: string[]
-  step_count: number; created_at: string; updated_at: string
+  step_count: number; steps: ReminderStep[]
+  created_at: string; updated_at: string
+}
+export type ArchiveImpact = {
+  schedule_id: string; schedule_name: string; is_default: boolean
+  live_jobs: number; invoices_affected: number
 }
 export type ReminderStep = {
   id: string; schedule: string; step_number: number
@@ -117,7 +163,7 @@ export type AgingData = {
     due_date: string; days_overdue: number; balance_minor: number
   }[]>
 }
-// FORECAST DISABLED â€” uncomment to re-enable
+// FORECAST DISABLED — uncomment to re-enable
 // export type ForecastData = {
 //   as_of: string; period_days: number; currency: string
 //   insufficient_history: boolean
@@ -125,7 +171,7 @@ export type AgingData = {
 //   scenarios: Record<string, { total_minor: number; lines: unknown[] }>
 // }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 export const money = (minor: number, currency = 'INR') =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(minor / 100)
@@ -134,10 +180,10 @@ export const fmtDate = (value: string) =>
   new Date(value + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
 /**
- * Format a quantity for display — mirrors the backend core.formatting.fmt_qty rule:
- *   whole numbers → no decimal point  (5.0000 → "5")
- *   fractions     → trailing zeros removed  (2.5000 → "2.5", 0.75 → "0.75")
- *   null / NaN    → "0"
+ * Format a quantity for display � mirrors the backend core.formatting.fmt_qty rule:
+ *   whole numbers ? no decimal point  (5.0000 ? "5")
+ *   fractions     ? trailing zeros removed  (2.5000 ? "2.5", 0.75 ? "0.75")
+ *   null / NaN    ? "0"
  * This is display-only; it never affects stored values or calculations.
  */
 export function fmtQty(value: number | string | null | undefined): string {
@@ -169,7 +215,7 @@ function headers(orgId?: string): Record<string, string> {
   return h
 }
 
-// â”€â”€ 401 global handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── 401 global handler ──────────────────────────────────────────────────────
 // App.tsx registers a callback here so that any 401 anywhere auto-clears auth.
 type OnUnauthenticated = () => void
 let _onUnauthenticated: OnUnauthenticated | null = null
@@ -177,7 +223,7 @@ export function setUnauthenticatedHandler(fn: OnUnauthenticated) {
   _onUnauthenticated = fn
 }
 
-// â”€â”€ Cross-tab logout via BroadcastChannel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Cross-tab logout via BroadcastChannel ───────────────────────────────────
 // Emits 'logout' so other open tabs can clear their state.
 const LOGOUT_CHANNEL = 'finpilot_auth'
 export function broadcastLogout() {
@@ -186,7 +232,7 @@ export function broadcastLogout() {
     ch.postMessage({ type: 'logout' })
     ch.close()
   } catch {
-    // BroadcastChannel not available (e.g. Firefox private mode) â€” fall back to localStorage
+    // BroadcastChannel not available (e.g. Firefox private mode) — fall back to localStorage
     try { localStorage.setItem('finpilot_logout', String(Date.now())) } catch { /* ignore */ }
   }
 }
@@ -208,7 +254,7 @@ export function subscribeLogoutChannel(handler: () => void): () => void {
   }
 }
 
-// Structured API error â€” preserves error_type and request_id from backend
+// Structured API error — preserves error_type and request_id from backend
 export class ApiError extends Error {
   error_type: string
   request_id?: string
@@ -225,10 +271,10 @@ export class ApiError extends Error {
 async function request<T>(  // <T> = empty box = placeholder for the response type (we don't know yet)
                             // Sending data to Django takes time, so we must wait for its response.
   method: string, path: string, body?: unknown, orgId?: string
-): Promise<T> {                    //This means the function will return a Promise containing the response data of type T.ðŸ‘‡
+): Promise<T> {                    //This means the function will return a Promise containing the response data of type T.👇
   const res = await fetch(path, {   //In simple words: this function sends a request and eventually gives us the backend response.
     method,
-    credentials: 'include',  //include â€” relevant cookies are included.
+    credentials: 'include',  //include — relevant cookies are included.
     headers: headers(orgId),
     body: body !== undefined ? JSON.stringify(body) : undefined,   //Because JavaScript objects need to be converted into JSON text before being sent in a normal HTTP request body.
   })
@@ -263,7 +309,7 @@ async function request<T>(  // <T> = empty box = placeholder for the response ty
   return text ? JSON.parse(text) : ({} as T)
 }
 
-// â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Auth ───────────────────────────────────────────────────────────────────
 
 export const api = {
   csrf: () => ensureCsrf(),
@@ -360,20 +406,30 @@ export const api = {
   activateProduct: (orgId: string, id: string) =>
     request<Product>('POST', `/api/v1/products/${id}/activate/`, {}, orgId),
 
-  // FORECAST DISABLED â€” uncomment to re-enable
+  // FORECAST DISABLED — uncomment to re-enable
   // forecast: (orgId: string, period: 7 | 30 | 60, timing = 'due_date') =>
   //   request<ForecastData>('GET', `/api/v1/forecasts/?period=${period}&timing=${timing}`, undefined, orgId),
 
 
   // Reminders
+  reminderTemplates: (orgId: string) =>
+    request<{ results: ReminderTemplate[]; count: number }>('GET', '/api/v1/reminders/templates/?page_size=200', undefined, orgId),
+
   reminderSchedules: (orgId: string) =>
     request<{ results: ReminderSchedule[]; count: number }>('GET', '/api/v1/reminders/schedules/', undefined, orgId),
+  getActiveSchedules: (orgId: string) =>
+    request<{ results: ReminderSchedule[]; count: number }>('GET', '/api/v1/reminders/schedules/?page_size=100', undefined, orgId),
   createReminderSchedule: (orgId: string, data: Partial<ReminderSchedule>) =>
     request<ReminderSchedule>('POST', '/api/v1/reminders/schedules/', data, orgId),
   updateReminderSchedule: (orgId: string, id: string, data: Partial<ReminderSchedule>) =>
     request<ReminderSchedule>('PATCH', `/api/v1/reminders/schedules/${id}/`, data, orgId),
   deleteReminderSchedule: (orgId: string, id: string) =>
     request<void>('DELETE', `/api/v1/reminders/schedules/${id}/`, undefined, orgId),
+
+  createScheduleWithSteps: (orgId: string, data: { name: string; steps: ScheduleStepInput[] }) =>
+    request<ReminderSchedule>('POST', '/api/v1/reminders/schedules/with-steps/', data, orgId),
+  updateScheduleWithSteps: (orgId: string, id: string, data: { name: string; steps: ScheduleStepInput[] }) =>
+    request<ReminderSchedule>('PUT', `/api/v1/reminders/schedules/${id}/with-steps/`, data, orgId),
 
   reminderSteps: (orgId: string, scheduleId?: string) =>
     request<{ results: ReminderStep[]; count: number }>('GET', `/api/v1/reminders/steps/${scheduleId ? '?schedule=' + scheduleId : ''}`, undefined, orgId),
@@ -401,6 +457,15 @@ export const api = {
   markForFollowup: (orgId: string, id: string) =>
     request<{ detail: string }>('POST', `/api/v1/reminders/jobs-v2/${id}/mark_for_followup/`, {}, orgId),
 
+  toggleSchedule: (orgId: string, id: string) =>
+    request<ReminderSchedule>('POST', `/api/v1/reminders/schedules/${id}/toggle/`, {}, orgId),
+  archiveImpact: (orgId: string, id: string) =>
+    request<ArchiveImpact>('GET', `/api/v1/reminders/schedules/${id}/archive-impact/`, undefined, orgId),
+  archiveSchedule: (orgId: string, id: string) =>
+    request<{ detail: string; live_jobs_cancelled: number; invoices_affected: number }>('POST', `/api/v1/reminders/schedules/${id}/archive/`, {}, orgId),
+  setDefaultSchedule: (orgId: string, id: string) =>
+    request<ReminderSchedule>('POST', `/api/v1/reminders/schedules/${id}/set-default/`, {}, orgId),
+
   seedDefaultReminders: (orgId: string) =>
     request<{ message: string; schedule_id: string; steps_created: number }>('POST', '/api/v1/reminders/seed-defaults/', {}, orgId),
   // AI Assistant 
@@ -410,7 +475,7 @@ export const api = {
       'POST', '/api/v1/assistant/', { question, session_id }, orgId
     ),
 
-  // AUDIT LOG DISABLED â€” uncomment to re-enable
+  // AUDIT LOG DISABLED — uncomment to re-enable
   // auditLogs: (orgId: string) =>
   //   request<AuditLog[]>('GET', '/api/v1/audit-logs/', undefined, orgId),
 
@@ -419,6 +484,8 @@ export const api = {
     request<{ unread_count: number; notifications: Notification[] }>('GET', '/api/v1/notifications/', undefined, orgId),
   markAllRead: (orgId: string) =>
     request<void>('POST', '/api/v1/notifications/mark-all-read/', {}, orgId),
+  markRead: (orgId: string, notificationId: string) =>
+    request<{ detail: string }>('POST', `/api/v1/notifications/${notificationId}/read/`, {}, orgId),
 
   // Exports
   exportInvoices: (orgId: string) =>

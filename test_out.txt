@@ -1,0 +1,21 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.17, pytest-8.4.2, pluggy-1.7.0
+django: version: 5.2.18, settings: config.settings (from ini)
+rootdir: C:\Users\abhis\OneDrive\Documents\ChatGPT\FinPilot AI\backend
+configfile: pytest.ini
+plugins: anyio-4.15.1, hypothesis-6.170.12, django-4.14.0
+collected 14 items
+
+reminders\tests.py .......F......                                        [100%]
+
+================================== FAILURES ===================================
+_______ TestApprovalWorkflow.test_automatic_mode_creates_scheduled_job ________
+reminders\tests.py:268: in test_automatic_mode_creates_scheduled_job
+    assert job.status == ReminderJob.Status.SCHEDULED
+E   AssertionError: assert 'dispatched' == ReminderJob.Status.SCHEDULED
+E     
+E     - scheduled
+E     + dispatched
+=========================== short test summary info ===========================
+FAILED reminders/tests.py::TestApprovalWorkflow::test_automatic_mode_creates_scheduled_job
+======================== 1 failed, 13 passed in 6.51s =========================

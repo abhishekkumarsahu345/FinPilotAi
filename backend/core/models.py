@@ -168,6 +168,14 @@ class Invoice(models.Model):
         on_delete=models.SET_NULL,
         related_name="invoices",
     )
+    reminder_schedule = models.ForeignKey(
+        "reminders.ReminderSchedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoices",
+    )
+    no_reminders = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

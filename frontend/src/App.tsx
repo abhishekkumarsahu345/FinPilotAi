@@ -1,5 +1,5 @@
 ﻿﻿// FinPilot AI - Invoice Module Improved
-import { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, ChevronUp, CircleHelp, Clock3,
@@ -15,6 +15,7 @@ import {
   type Payment, type DashboardData, type AgingData, /*type ForecastData,*/ type Notification,
   type Product, type GSTRate, type OrganizationDetail,
   type ReminderSchedule, type ReminderStep, type ReminderJob,
+  type ReminderTemplate, type ScheduleStepInput, type ArchiveImpact,
 } from './lib/api'
 
 // -- Types ------------------------------------------------------------------
@@ -795,6 +796,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
               <div className="invoice-modern-label">INVOICE DATE</div>
               <div className="invoice-modern-value">{fmtDate(invoice.invoice_date)}</div>
               <div className="invoice-modern-meta">Due date: {fmtDate(invoice.due_date)}</div>
+              <div className="invoice-modern-meta">Reminders: {invoice.no_reminders ? 'Disabled' : (invoice.reminder_schedule_name && invoice.reminder_schedule_name !== 'Default schedule' ? invoice.reminder_schedule_name : 'Default schedule')}</div>
             </div>
           </div>
 
@@ -867,6 +869,9 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [customer, setCustomer] = useState(editing?.customer || '')
+  const [reminderSchedule, setReminderSchedule] = useState<string>(editing?.reminder_schedule || '')
+  const [noReminders, setNoReminders] = useState(editing?.no_reminders ?? false)
+  const [schedules, setSchedules] = useState<ReminderSchedule[]>([])
   const [number, setNumber] = useState(editing?.invoice_number || '')
   const [invDate, setInvDate] = useState(editing?.invoice_date || new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState(editing?.due_date || '')
@@ -885,6 +890,13 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
   )
 
   const activeRates = gstRates.filter(r => r.active)
+
+  // Load active schedules for the dropdown
+  useEffect(() => {
+    api.getActiveSchedules(orgId)
+      .then(r => setSchedules(r.results.filter(s => s.enabled && !s.archived)))
+      .catch(() => {})
+  }, [orgId])
 
   const updateLine = (i: number, patch: Partial<InvoiceLine>) =>
     setLines(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l))
@@ -940,6 +952,8 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
     const payload: Record<string, unknown> = {
       customer, invoice_number: number, invoice_date: invDate, due_date: dueDate,
       currency: 'INR', discount_minor: invDisc, status: editing?.status || 'issued',
+      reminder_schedule: noReminders ? null : (reminderSchedule || null),
+      no_reminders: noReminders,
       items: lines.map(l => {
         const item: Record<string, unknown> = {
           description: l.description || 'Item', quantity: parseFloat(l.quantity),
@@ -999,6 +1013,38 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
                 <input className="invoice-form-clean-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required />
               </div>
             </div>
+
+            {/* Reminder Schedule */}
+            <div className="invoice-form-clean-grid" style={{ gridTemplateColumns: '1fr' }}>
+              <div className="invoice-form-clean-col">
+                <label className="invoice-form-clean-label">Reminder schedule</label>
+                <select
+                  className="invoice-form-clean-input"
+                  value={noReminders ? '__none__' : (reminderSchedule || '__default__')}
+                  onChange={e => {
+                    if (e.target.value === '__none__') {
+                      setNoReminders(true)
+                      setReminderSchedule('')
+                    } else if (e.target.value === '__default__') {
+                      setNoReminders(false)
+                      setReminderSchedule('')
+                    } else {
+                      setNoReminders(false)
+                      setReminderSchedule(e.target.value)
+                    }
+                  }}
+                >
+                  <option value="__default__">
+                    Use default schedule{schedules.find(s => s.is_default) ? ` (${schedules.find(s => s.is_default)!.name})` : ''}
+                  </option>
+                  <option value="__none__">No reminders</option>
+                  {schedules.filter(s => !s.is_default).map(s => (
+                    <option key={s.id} value={s.id}>{s.name}{s.step_count ? ` · ${s.step_count} step${s.step_count !== 1 ? 's' : ''}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
 
             {/* Invoice Lines Table */}
             <div className="invoice-form-clean-section">
@@ -1643,6 +1689,331 @@ function AutoHeightIframe({
   )
 }
 
+// ========== SCHEDULE FORM MODAL ==========
+type StepDraft = {
+  id: string
+  basis: 'issue' | 'due'
+  kind: 'on' | 'before' | 'after'
+  days: number
+  template: string
+  templateName: string
+}
+
+function timingLabel(s: StepDraft): string {
+  if (s.basis === 'issue') {
+    return s.days === 0 ? 'On invoice issue date' : `${s.days} day${s.days !== 1 ? 's' : ''} after invoice issue`
+  }
+  if (s.kind === 'on') return 'On the due date'
+  if (s.kind === 'before') return `${s.days} day${s.days !== 1 ? 's' : ''} before due date`
+  return `${s.days} day${s.days !== 1 ? 's' : ''} after due date`
+}
+
+function newStep(): StepDraft {
+  return { id: Math.random().toString(36).slice(2), basis: 'due', kind: 'on', days: 0, template: '', templateName: '' }
+}
+
+function ScheduleFormModal({
+  org,
+  schedule,
+  onSaved,
+  onClose,
+}: {
+  org: { id: string }
+  schedule: (ReminderSchedule & { steps: ReminderStep[] }) | null
+  onSaved: (s: ReminderSchedule) => void
+  onClose: () => void
+}) {
+  const [name, setName] = useState(schedule?.name ?? '')
+  const [steps, setSteps] = useState<StepDraft[]>(() => {
+    if (schedule && schedule.steps && schedule.steps.length > 0) {
+      return schedule.steps.map(st => {
+        const basis: 'issue' | 'due' = st.offset_from_issue !== null ? 'issue' : 'due'
+        const raw = basis === 'issue' ? (st.offset_from_issue ?? 0) : (st.offset_from_due ?? 0)
+        let kind: 'on' | 'before' | 'after' = 'on'
+        let days = 0
+        if (basis === 'due') {
+          if (raw === 0) { kind = 'on'; days = 0 }
+          else if (raw < 0) { kind = 'before'; days = Math.abs(raw) }
+          else { kind = 'after'; days = raw }
+        } else {
+          days = raw
+        }
+        return { id: Math.random().toString(36).slice(2), basis, kind, days, template: st.template, templateName: st.template_name }
+      })
+    }
+    return [newStep()]
+  })
+  const [templates, setTemplates] = useState<ReminderTemplate[]>([])
+  const [saving, setSaving] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [submitError, setSubmitError] = useState('')
+  const isEdit = !!schedule
+
+  useEffect(() => {
+    api.reminderTemplates(org.id)
+      .then(r => setTemplates(r.results.filter(t => t.active && t.channel === 'email')))
+      .catch(() => {})
+  }, [org.id])
+
+  const setStep = (id: string, patch: Partial<StepDraft>) =>
+    setSteps(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
+
+  const addStep = () => {
+    if (steps.length >= 10) return
+    setSteps(prev => [...prev, newStep()])
+  }
+
+  const removeStep = (id: string) => setSteps(prev => prev.filter(s => s.id !== id))
+
+  const moveUp = (idx: number) => {
+    if (idx === 0) return
+    setSteps(prev => { const a = [...prev]; [a[idx - 1], a[idx]] = [a[idx], a[idx - 1]]; return a })
+  }
+
+  const moveDown = (idx: number) => {
+    if (idx === steps.length - 1) return
+    setSteps(prev => { const a = [...prev]; [a[idx], a[idx + 1]] = [a[idx + 1], a[idx]]; return a })
+  }
+
+  const validate = (): boolean => {
+    const errs: Record<string, string> = {}
+    if (!name.trim()) errs['name'] = 'Schedule name is required.'
+    if (steps.length === 0) errs['steps'] = 'Add at least one step.'
+    const seen = new Set<string>()
+    steps.forEach((s, i) => {
+      if (!s.template) errs[`step_${i}_template`] = 'Choose a template.'
+      if (s.basis === 'due' && s.kind !== 'on' && s.days <= 0) errs[`step_${i}_days`] = 'Enter a number greater than 0.'
+      if (s.basis === 'issue' && s.days < 0) errs[`step_${i}_days`] = 'Days cannot be negative.'
+      if (s.days > 365) errs[`step_${i}_days`] = 'Maximum is 365 days.'
+      const key = s.basis === 'issue' ? `issue:${s.days}` : `due:${s.kind === 'before' ? -s.days : s.kind === 'on' ? 0 : s.days}`
+      if (seen.has(key)) errs[`step_${i}_timing`] = 'Another step already uses this timing.'
+      seen.add(key)
+    })
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    setSaving(true)
+    setSubmitError('')
+    const payload = {
+      name: name.trim(),
+      steps: steps.map(s => ({
+        basis: s.basis,
+        kind: s.kind,
+        days: s.days,
+        template: s.template,
+      } as ScheduleStepInput)),
+    }
+    try {
+      let saved: ReminderSchedule
+      if (isEdit && schedule) {
+        saved = await api.updateScheduleWithSteps(org.id, schedule.id, payload)
+      } else {
+        saved = await api.createScheduleWithSteps(org.id, payload)
+      }
+      onSaved(saved)
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : 'Could not save. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const iStyle: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', padding: '8px 12px',
+    border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px',
+    fontFamily: 'inherit', outline: 'none',
+  }
+  const eStyle: React.CSSProperties = { fontSize: '12px', color: '#dc2626', marginTop: '4px' }
+  const lStyle: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '6px' }
+
+  return (
+    <div
+      role="presentation"
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '16px' }}
+      onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sfm-title"
+        style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '100%', maxWidth: '680px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <h2 id="sfm-title" style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+            {isEdit ? 'Edit Schedule' : 'New Reminder Schedule'}
+          </h2>
+          <button onClick={onClose} disabled={saving} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '4px' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <label htmlFor="sfm-name" style={lStyle}>Schedule name</label>
+            <input
+              id="sfm-name"
+              value={name}
+              onChange={e => { setName(e.target.value); setFieldErrors(p => ({ ...p, name: '' })) }}
+              placeholder="e.g. Standard Payment Reminders"
+              style={{ ...iStyle, borderColor: fieldErrors.name ? '#dc2626' : '#d1d5db' }}
+            />
+            {fieldErrors.name && <div style={eStyle}>{fieldErrors.name}</div>}
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ ...lStyle, margin: 0 }}>Steps ({steps.length}/10)</span>
+              <button
+                onClick={addStep}
+                disabled={steps.length >= 10}
+                style={{ padding: '6px 14px', background: steps.length >= 10 ? '#f3f4f6' : '#3b82f6', color: steps.length >= 10 ? '#9ca3af' : 'white', border: 'none', borderRadius: '6px', cursor: steps.length >= 10 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={14} /> Add step
+              </button>
+            </div>
+            {fieldErrors.steps && <div style={{ ...eStyle, marginBottom: '8px' }}>{fieldErrors.steps}</div>}
+
+            {steps.map((step, idx) => (
+              <div key={step.id} style={{ background: '#f9fafb', border: `1px solid ${fieldErrors[`step_${idx}_timing`] ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '8px', padding: '16px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#0f172a' }}>Step {idx + 1}</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={() => moveUp(idx)} disabled={idx === 0} title="Move up" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '4px', cursor: idx === 0 ? 'default' : 'pointer', padding: '4px 6px', color: idx === 0 ? '#d1d5db' : '#6b7280' }}><ChevronUp size={14} /></button>
+                    <button onClick={() => moveDown(idx)} disabled={idx === steps.length - 1} title="Move down" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '4px', cursor: idx === steps.length - 1 ? 'default' : 'pointer', padding: '4px 6px', color: idx === steps.length - 1 ? '#d1d5db' : '#6b7280' }}><ChevronDown size={14} /></button>
+                    <button onClick={() => removeStep(step.id)} disabled={steps.length === 1} title="Remove step" style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '4px', cursor: steps.length === 1 ? 'default' : 'pointer', padding: '4px 6px', color: steps.length === 1 ? '#d1d5db' : '#dc2626' }}><X size={14} /></button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={lStyle}>When to send</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <select
+                      value={step.basis}
+                      onChange={e => {
+                        const b = e.target.value as 'issue' | 'due'
+                        setStep(step.id, { basis: b, kind: 'on', days: 0 })
+                        setFieldErrors(p => ({ ...p, [`step_${idx}_timing`]: '', [`step_${idx}_days`]: '' }))
+                      }}
+                      style={iStyle}
+                    >
+                      <option value="due">Relative to due date</option>
+                      <option value="issue">Relative to invoice issue date</option>
+                    </select>
+
+                    {step.basis === 'due' ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <select
+                          value={step.kind}
+                          onChange={e => {
+                            const k = e.target.value as 'on' | 'before' | 'after'
+                            setStep(step.id, { kind: k, days: k === 'on' ? 0 : step.days || 1 })
+                            setFieldErrors(p => ({ ...p, [`step_${idx}_days`]: '' }))
+                          }}
+                          style={{ ...iStyle, flex: '0 0 auto', width: 'auto' }}
+                        >
+                          <option value="on">On the due date</option>
+                          <option value="before">Before due date</option>
+                          <option value="after">After due date</option>
+                        </select>
+                        {step.kind !== 'on' && (
+                          <input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={step.days}
+                            onChange={e => {
+                              setStep(step.id, { days: Math.max(1, parseInt(e.target.value) || 1) })
+                              setFieldErrors(p => ({ ...p, [`step_${idx}_days`]: '' }))
+                            }}
+                            style={{ ...iStyle, width: '80px', flexShrink: 0, borderColor: fieldErrors[`step_${idx}_days`] ? '#dc2626' : '#d1d5db' }}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={365}
+                          value={step.days}
+                          onChange={e => {
+                            setStep(step.id, { days: Math.max(0, parseInt(e.target.value) || 0) })
+                            setFieldErrors(p => ({ ...p, [`step_${idx}_days`]: '' }))
+                          }}
+                          style={{ ...iStyle, width: '80px', borderColor: fieldErrors[`step_${idx}_days`] ? '#dc2626' : '#d1d5db' }}
+                        />
+                        <span style={{ fontSize: '13px', color: '#6b7280', whiteSpace: 'nowrap' }}>days after issue</span>
+                      </div>
+                    )}
+                  </div>
+                  {fieldErrors[`step_${idx}_days`] && <div style={eStyle}>{fieldErrors[`step_${idx}_days`]}</div>}
+                  {fieldErrors[`step_${idx}_timing`] && <div style={eStyle}>{fieldErrors[`step_${idx}_timing`]}</div>}
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#3b82f6', fontWeight: 500 }}>
+                    {timingLabel(step)}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={lStyle}>Channel</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ padding: '7px 14px', background: '#eff6ff', border: '2px solid #3b82f6', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: '#1d4ed8' }}>
+                      Email
+                    </div>
+                    <div title="Coming soon" style={{ padding: '7px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '13px', color: '#9ca3af', cursor: 'not-allowed' }}>
+                      WhatsApp <span style={{ fontSize: '11px', background: '#f3f4f6', borderRadius: '4px', padding: '1px 5px' }}>coming soon</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={lStyle}>Message template</label>
+                  <select
+                    value={step.template}
+                    onChange={e => {
+                      const t = templates.find(x => x.id === e.target.value)
+                      setStep(step.id, { template: e.target.value, templateName: t?.name ?? '' })
+                      setFieldErrors(p => ({ ...p, [`step_${idx}_template`]: '' }))
+                    }}
+                    style={{ ...iStyle, borderColor: fieldErrors[`step_${idx}_template`] ? '#dc2626' : '#d1d5db' }}
+                  >
+                    <option value="">— choose a template —</option>
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  {fieldErrors[`step_${idx}_template`] && <div style={eStyle}>{fieldErrors[`step_${idx}_template`]}</div>}
+                  {templates.length === 0 && (
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#f59e0b' }}>
+                      No active email templates found. Create one in the Reminders templates section first.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, gap: '12px' }}>
+          <div style={{ flex: 1 }}>
+            {submitError && <div style={{ fontSize: '13px', color: '#dc2626' }}>{submitError}</div>}
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={onClose} disabled={saving} style={{ padding: '9px 20px', background: 'white', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={saving} style={{ padding: '9px 20px', background: saving ? '#93c5fd' : '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {saving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+              {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Create schedule'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 function RemindersPage({ org }: { org: Org }) {
   const [view, setView] = useState<'pending' | 'sent' | 'failed' | 'schedules'>('pending')
   const [schedules, setSchedules] = useState<ReminderSchedule[]>([])
@@ -1660,6 +2031,8 @@ function RemindersPage({ org }: { org: Org }) {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<ReminderSchedule | null>(null)
   const [editingStep, setEditingStep] = useState<ReminderStep | null>(null)
+  const [archiveConfirm, setArchiveConfirm] = useState<{ schedule: ReminderSchedule; impact: ArchiveImpact } | null>(null)
+  const [toggleConfirm, setToggleConfirm] = useState<ReminderSchedule | null>(null)
 
   // Approval form state
   const [customIntro, setCustomIntro] = useState('')
@@ -1698,6 +2071,75 @@ function RemindersPage({ org }: { org: Org }) {
       setLoading(false)
     }
   }, [org.id])
+
+
+  // Check if user can manage schedules (owner or manager)
+  const canManage = org.role === 'owner' || org.role === 'manager'
+
+  // Toggle schedule active/inactive
+  const handleToggle = async (schedule: ReminderSchedule) => {
+    if (!canManage) {
+      setError('Only Business Owner or Finance Manager can toggle schedules.')
+      return
+    }
+    if (schedule.enabled && schedule.is_default) {
+      setError('This is the default schedule. Set another schedule as default before deactivating it.')
+      return
+    }
+    if (schedule.enabled) {
+      if (!confirm('Deactivate "' + schedule.name + '"? New reminders will not be created from this schedule while it\'s inactive. Pending approvals and already-sent reminders are not affected.')) return
+    }
+    setLoading(true); setError('')
+    try {
+      const updated = await api.toggleSchedule(org.id, schedule.id)
+      setSchedules(prev => prev.map(s => s.id === updated.id ? updated : s))
+      setSuccess('Schedule "' + updated.name + '" ' + (updated.enabled ? 'activated' : 'deactivated') + '.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to toggle schedule')
+    } finally { setLoading(false) }
+  }
+
+  // Show archive confirmation dialog
+  const handleShowArchiveConfirm = async (schedule: ReminderSchedule) => {
+    if (!canManage) { setError('Only Business Owner or Finance Manager can delete schedules.'); return }
+    if (schedule.is_default) { setError('This is the default schedule. Set another schedule as default before deleting it.'); return }
+    setLoading(true)
+    try {
+      const impact = await api.archiveImpact(org.id, schedule.id)
+      setArchiveConfirm({ schedule, impact })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load schedule impact')
+    } finally { setLoading(false) }
+  }
+
+  // Archive schedule
+  const handleArchive = async () => {
+    if (!archiveConfirm) return
+    const { schedule } = archiveConfirm
+    setLoading(true); setError('')
+    try {
+      const result = await api.archiveSchedule(org.id, schedule.id)
+      setSchedules(prev => prev.filter(s => s.id !== schedule.id))
+      setArchiveConfirm(null)
+      setSuccess(result.detail)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to archive schedule')
+    } finally { setLoading(false) }
+  }
+
+  // Set schedule as default
+  const handleSetDefault = async (schedule: ReminderSchedule) => {
+    if (!canManage) { setError('Only Business Owner or Finance Manager can change the default schedule.'); return }
+    if (schedule.is_default) return
+    setLoading(true); setError('')
+    try {
+      const updated = await api.setDefaultSchedule(org.id, schedule.id)
+      setSchedules(prev => prev.map(s => s.id === updated.id ? { ...s, is_default: true } : { ...s, is_default: false }))
+      setSuccess('"' + updated.name + '" set as the default reminder schedule.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to set default schedule')
+    } finally { setLoading(false) }
+  }
 
   // Initial load
   useEffect(() => {
@@ -1781,6 +2223,7 @@ function RemindersPage({ org }: { org: Org }) {
   const pendingCount = jobs.filter(j => j.status === 'proposed').length
   const sentTodayCount = jobs.filter(j => j.status === 'dispatched' && j.dispatched_at?.startsWith(new Date().toISOString().split('T')[0])).length
   const failedCount = jobs.filter(j => j.status === 'failed').length
+  type ScheduleForEdit = ReminderSchedule & { steps: ReminderStep[] }
 
   return (
     <div>
@@ -2011,8 +2454,18 @@ function RemindersPage({ org }: { org: Org }) {
               {schedules.map(schedule => (
                 <div key={schedule.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{schedule.name}</h3>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{schedule.name}</h3>
+                        {schedule.is_default && (
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+                            background: '#dbeafe', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.03em'
+                          }}>
+                            Default
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
                         {schedule.step_count} steps â€¢ Business hours: {schedule.send_hour_start}:00 - {schedule.send_hour_end}:00
                       </div>
@@ -2022,15 +2475,48 @@ function RemindersPage({ org }: { org: Org }) {
                       background: schedule.enabled ? '#d1fae5' : '#fee2e2',
                       color: schedule.enabled ? '#065f46' : '#991b1b'
                     }}>
-                      {schedule.enabled ? 'Active' : 'Disabled'}
+                      {schedule.enabled ? 'Active' : 'Inactive'}
                     </div>
                   </div>
-                  <button onClick={() => { setSelectedSchedule(schedule); loadSteps(schedule.id) }} style={{
-                    padding: '8px 16px', background: '#f3f4f6', border: 'none',
-                    borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px'
-                  }}>
-                    View Steps â†’
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button onClick={() => { setSelectedSchedule(schedule); loadSteps(schedule.id) }} style={{
+                      padding: '8px 16px', background: '#f3f4f6', border: 'none',
+                      borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px'
+                    }}>
+                      View Steps â†’
+                    </button>
+                    <button onClick={() => { setEditingSchedule(schedule); setShowScheduleModal(true) }} style={{
+                      padding: '8px 16px', background: 'white', border: '1px solid #d1d5db',
+                      borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#374151',
+                      display: canManage ? 'inline-flex' : 'none'
+                    }}>
+                      Edit
+                    </button>
+                    {canManage && (
+                      <button onClick={() => handleToggle(schedule)} title={schedule.enabled ? 'Deactivate' : 'Activate'} style={{
+                        padding: '8px 16px', background: 'white', border: '1px solid #d1d5db',
+                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: schedule.enabled ? '#d97706' : '#059669'
+                      }}>
+                        {schedule.enabled ? 'Deactivate' : 'Activate'}
+                      </button>
+                    )}
+                    {canManage && !schedule.is_default && (
+                      <button onClick={() => handleSetDefault(schedule)} style={{
+                        padding: '8px 16px', background: 'white', border: '1px solid #3b82f6',
+                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#3b82f6'
+                      }}>
+                        Set as default
+                      </button>
+                    )}
+                    {canManage && (
+                      <button onClick={() => handleShowArchiveConfirm(schedule)} title="Delete (archive) this schedule" style={{
+                        padding: '8px 16px', background: 'white', border: '1px solid #dc2626',
+                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#dc2626'
+                      }}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2085,7 +2571,65 @@ function RemindersPage({ org }: { org: Org }) {
         </div>
       )}
 
+      {showScheduleModal && (
+        <ScheduleFormModal
+          org={org}
+          schedule={editingSchedule as ScheduleForEdit | null}
+          onSaved={saved => {
+            setSchedules(prev => {
+              const idx2 = prev.findIndex(s => s.id === saved.id)
+              if (idx2 >= 0) { const next = [...prev]; next[idx2] = saved; return next }
+              return [saved, ...prev]
+            })
+            setShowScheduleModal(false)
+            setEditingSchedule(null)
+            setSuccess(editingSchedule ? `Schedule "${saved.name}" updated.` : `Schedule "${saved.name}" created.`)
+            setView('schedules')
+          }}
+          onClose={() => { setShowScheduleModal(false); setEditingSchedule(null) }}
+        />
+      )}
       {/* Email Preview Modal — two-pane redesign */}
+      {/* Archive Confirmation Dialog */}
+      {archiveConfirm && (
+        <div
+          role="presentation"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '16px' }}
+          onClick={e => { if (e.target === e.currentTarget && !loading) setArchiveConfirm(null) }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '100%', maxWidth: '480px', padding: '24px' }}
+          >
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#dc2626', marginBottom: '16px' }}>
+              Delete Schedule "{archiveConfirm.schedule.name}"?
+            </h2>
+            <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6, marginBottom: '12px' }}>
+              This schedule will be archived and removed from the list. All existing reminder history will be preserved.
+            </p>
+            {archiveConfirm.impact.invoices_affected > 0 && (
+              <p style={{ margin: 0, fontSize: '14px', color: '#d97706', fontWeight: 500, marginBottom: '12px' }}>
+                <strong>{archiveConfirm.impact.invoices_affected} invoice{archiveConfirm.impact.invoices_affected !== 1 ? 's' : ''}</strong> {archiveConfirm.impact.invoices_affected === 1 ? 'is' : 'are'} linked to this schedule. Future reminders for these invoices will fall back to the default schedule.
+              </p>
+            )}
+            {archiveConfirm.impact.live_jobs > 0 && (
+              <p style={{ margin: 0, fontSize: '14px', color: '#374151', marginBottom: '12px' }}>
+                <strong>{archiveConfirm.impact.live_jobs} pending reminder{archiveConfirm.impact.live_jobs !== 1 ? 's' : ''}</strong> from this schedule will remain visible and can still be approved.
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button onClick={() => setArchiveConfirm(null)} disabled={loading} style={{ flex: 1, padding: '10px 20px', background: 'white', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                Cancel
+              </button>
+              <button onClick={handleArchive} disabled={loading} style={{ flex: 1, padding: '10px 20px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                {loading ? 'Deleting...' : 'Delete Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPreviewModal && previewJob && (() => {
         const closeModal = () => { setShowPreviewModal(false); setPreviewJob(null) }
         const overdueDays = previewJob.snapshot_days_overdue

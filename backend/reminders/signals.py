@@ -122,7 +122,8 @@ def create_initial_invoice_email(sender, instance, created, **kwargs):
                         defaults={
                             "payload": {
                                 "invoice_number": instance.invoice_number,
-                                "step": "Initial Invoice Email"
+                                "customer_name": customer.name,
+                                "step_label": "Initial Invoice Email",
                             }
                         },
                     )

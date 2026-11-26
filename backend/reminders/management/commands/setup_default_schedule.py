@@ -118,6 +118,14 @@ class Command(BaseCommand):
                 )
                 action = 'created'
             
+            # Ensure this is marked as the default schedule
+            ReminderSchedule.objects.filter(
+                organization=org,
+                is_default=True,
+            ).exclude(id=schedule.id).update(is_default=False)
+            schedule.is_default = True
+            schedule.save(update_fields=["is_default"])
+            
             # Delete existing steps if force update
             if existing and force:
                 schedule.steps.all().delete()

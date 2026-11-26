@@ -223,6 +223,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
     items = InvoiceItemSerializer(many=True, required=False)
     gst_summary = serializers.SerializerMethodField()
     gst_warning = serializers.SerializerMethodField()
+    # Reminder schedule selection
+    # On write: accepts a UUID string (or null).
+    # On read: returns the UUID string of the FK (or null) via to_representation override.
+    reminder_schedule = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None
+    )
+    reminder_schedule_name = serializers.SerializerMethodField()
+    no_reminders = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = Invoice
@@ -233,6 +241,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "status", "source", "notes",
             "paid_minor", "balance_minor", "display_status",
             "items", "gst_summary", "gst_warning", "created_at",
+            "reminder_schedule", "reminder_schedule_name", "no_reminders",
         ]
         read_only_fields = ["id", "total_minor", "source", "created_at"]
         # subtotal_minor is required for header-only invoices (no items), but is
@@ -240,6 +249,13 @@ class InvoiceSerializer(serializers.ModelSerializer):
         # optional at the field level and enforce the presence/positivity rule in
         # validate().
         extra_kwargs = {"subtotal_minor": {"required": False}}
+
+    def get_reminder_schedule_name(self, obj):
+        if obj.no_reminders:
+            return "No reminders"
+        if obj.reminder_schedule_id:
+            return obj.reminder_schedule.name
+        return "Default schedule"
 
     def get_paid_minor(self, obj):
         return sum(
@@ -267,6 +283,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_gst_warning(self, obj):
         """Place-of-supply warning stored on the invoice at write time."""
         return getattr(obj, "_gst_warning", "") or ""
+
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        # Overwrite reminder_schedule with the FK's UUID string (not __str__)
+        data["reminder_schedule"] = str(obj.reminder_schedule_id) if obj.reminder_schedule_id else None
+        return data
 
     def get_gst_summary(self, obj):
         """Rate-wise GST breakdown, aggregated from stored line snapshots.
@@ -341,6 +363,44 @@ class InvoiceSerializer(serializers.ModelSerializer):
                 {"currency": f"Invoice currency must match the organization default ({org.default_currency})."}
             )
 
+        # ── Reminder schedule validation ─────────────────────────────────
+        schedule_uuid = data.get("reminder_schedule", ...)  # sentinel to detect absence
+        if schedule_uuid is not ...:
+            if schedule_uuid is not None:
+                from reminders.models import ReminderSchedule
+                try:
+                    sched_obj = ReminderSchedule.objects.get(id=schedule_uuid)
+                except ReminderSchedule.DoesNotExist:
+                    raise serializers.ValidationError(
+                        {"reminder_schedule": "Reminder schedule not found."}
+                    )
+                if sched_obj.organization_id != org.id:
+                    raise serializers.ValidationError(
+                        {"reminder_schedule": "Reminder schedule must belong to the active organization."}
+                    )
+                if not sched_obj.enabled or sched_obj.archived:
+                    raise serializers.ValidationError(
+                        {"reminder_schedule": "Reminder schedule is archived or disabled."}
+                    )
+                data["_resolved_reminder_schedule"] = sched_obj
+            else:
+                data["_resolved_reminder_schedule"] = None
+
+        # Track whether schedule-related fields changed (for update path)
+        if self.instance:
+            old_schedule_id = self.instance.reminder_schedule_id
+            new_schedule_obj = data.get("_resolved_reminder_schedule", ...)
+            new_no_reminders = data.get("no_reminders", ...)
+            schedule_field_changed = (
+                (new_schedule_obj is not ... and (
+                    new_schedule_obj is None and old_schedule_id is not None
+                    or new_schedule_obj is not None and str(new_schedule_obj.id) != str(old_schedule_id or "")
+                ))
+                or (new_no_reminders is not ... and new_no_reminders != self.instance.no_reminders)
+            )
+            data["_old_schedule_id"] = old_schedule_id
+            data["_schedule_field_changed"] = schedule_field_changed
+
         items_data = data.get("items", None)
 
         # ── Determine place of supply (intra vs inter-state) ─────────────
@@ -389,6 +449,15 @@ class InvoiceSerializer(serializers.ModelSerializer):
         total = data.pop("_calculated_total")
         gst_warning = data.pop("_gst_warning", "")
         data.pop("_has_items", False)
+        data.pop("_old_schedule_id", None)
+        data.pop("_schedule_field_changed", None)
+        # Resolve reminder_schedule UUID to FK instance (or None)
+        resolved_schedule = data.pop("_resolved_reminder_schedule", ...)
+        if resolved_schedule is not ...:
+            data["reminder_schedule"] = resolved_schedule
+        else:
+            # Field was not submitted — remove from data so the model default (None) applies
+            data.pop("reminder_schedule", None)
         items_data = data.pop("items", [])
         req = self.context["request"]
         
@@ -434,6 +503,14 @@ class InvoiceSerializer(serializers.ModelSerializer):
         gst_warning = data.pop("_gst_warning", "")
         has_items = data.pop("_has_items", False)
         items_data = data.pop("items", []) if has_items else None
+        old_schedule_id = data.pop("_old_schedule_id", None)
+        schedule_field_changed = data.pop("_schedule_field_changed", False)
+        # Resolve reminder_schedule UUID to FK instance (or sentinel meaning "not submitted")
+        resolved_schedule = data.pop("_resolved_reminder_schedule", ...)
+        if resolved_schedule is not ...:
+            data["reminder_schedule"] = resolved_schedule
+        else:
+            data.pop("reminder_schedule", None)
         req = self.context["request"]
         # Guard against changing totals when allocations exist
         active_allocs = instance.allocations.filter(reversed_at__isnull=True)
@@ -470,6 +547,28 @@ class InvoiceSerializer(serializers.ModelSerializer):
                 entity_id=str(instance.id),
                 summary=f"Updated invoice {instance.invoice_number}",
             )
+            # Audit log for schedule change
+            if schedule_field_changed:
+                new_no_reminders = instance.no_reminders
+                new_schedule = instance.reminder_schedule
+                AuditLog.objects.create(
+                    organization=instance.organization,
+                    actor=req.user,
+                    action="invoice.reminder_schedule_changed",
+                    entity_type="invoice",
+                    entity_id=str(instance.id),
+                    summary=(
+                        f"Reminder schedule changed on invoice {instance.invoice_number}: "
+                        f"no_reminders={new_no_reminders}, "
+                        f"schedule={new_schedule.name if new_schedule else 'default'}"
+                    ),
+                )
+
+        # Trigger reschedule outside the atomic block so the saved state is visible
+        if schedule_field_changed:
+            from reminders.schedule_tasks import reschedule_invoice_reminders
+            reschedule_invoice_reminders(instance, old_schedule_id=old_schedule_id)
+
         return instance
 
 

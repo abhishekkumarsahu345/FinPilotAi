@@ -150,6 +150,8 @@ class ReminderSchedule(models.Model):
     )
     name = models.CharField(max_length=255)
     enabled = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)
     # Business hours for sending (local org time)
     send_hour_start = models.PositiveSmallIntegerField(default=10)  # 10 AM
     send_hour_end = models.PositiveSmallIntegerField(default=18)    # 6 PM
