@@ -1,4 +1,4 @@
-﻿// FinPilot AI - Invoice Module Improved
+// FinPilot AI - Invoice Module Improved
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
 import { useTheme } from './lib/theme'
@@ -173,7 +173,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
       if (org.length < 2) { setError('Business name must be at least 2 characters.'); return }
     }
 
-    // Forgot password — UI only, no backend endpoint
+    // Forgot password � UI only, no backend endpoint
     if (mode === 'forgot') {
       setBusy(true)
       await new Promise(r => setTimeout(r, 800)) // brief simulated delay
@@ -307,7 +307,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
                         id="fp-password"
                         name="password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder={mode === 'login' ? '••••••••' : 'Minimum 8 characters'}
+                        placeholder={mode === 'login' ? '��������' : 'Minimum 8 characters'}
                         required
                         autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       />
@@ -425,7 +425,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
               </p>
             )}
 
-            <div className="auth-left-foot">© FinPilot AI 2026</div>
+            <div className="auth-left-foot">� FinPilot AI 2026</div>
           </div>
 
           {/* -- RIGHT: artwork column -- */}
@@ -587,7 +587,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             <span>COMPLIANCE &amp; SECURITY STANDARDS</span>
-            <p>256-bit bank-grade encryption · RBI Fair Practices Framework · ISO 27001 &amp; SOC2 Type II Certified</p>
+            <p>256-bit bank-grade encryption � RBI Fair Practices Framework � ISO 27001 &amp; SOC2 Type II Certified</p>
           </div>
         </aside>
 
@@ -597,7 +597,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
           <div className="org-progress">
             <div className="org-progress-label">
               <span className="org-step-done">STEP 2 OF 3</span>
-              <span className="org-step-next">Organization Setup · Next: Dashboard</span>
+              <span className="org-step-next">Organization Setup � Next: Dashboard</span>
             </div>
             <div className="org-progress-bars">
               <div className="org-progress-bar org-progress-done" />
@@ -789,7 +789,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
         {/* Header with Invoice Number */}
         <div className="invoice-modern-header">
           <div className="invoice-modern-header-left">
-            <div className="invoice-modern-brand">FinPilot AI – Customer Invoice</div>
+            <div className="invoice-modern-brand">FinPilot AI � Customer Invoice</div>
             <h1 className="invoice-modern-number">{invoice.invoice_number}</h1>
           </div>
           <div className="invoice-modern-header-right">
@@ -808,7 +808,7 @@ function InvoiceViewModal({ invoice, customers, onClose, onEdit }: {
           <div className="invoice-modern-info-grid">
             <div className="invoice-modern-info-col">
               <div className="invoice-modern-label">CUSTOMER</div>
-              <div className="invoice-modern-value-large">{cust?.name || '—'}</div>
+              <div className="invoice-modern-value-large">{cust?.name || '�'}</div>
               {cust?.billing_address && <div className="invoice-modern-address">{cust.billing_address}</div>}
             </div>
             
@@ -1059,7 +1059,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
                   </option>
                   <option value="__none__">No reminders</option>
                   {schedules.filter(s => !s.is_default).map(s => (
-                    <option key={s.id} value={s.id}>{s.name}{s.step_count ? ` · ${s.step_count} step${s.step_count !== 1 ? 's' : ''}` : ''}</option>
+                    <option key={s.id} value={s.id}>{s.name}{s.step_count ? ` � ${s.step_count} step${s.step_count !== 1 ? 's' : ''}` : ''}</option>
                   ))}
                 </select>
               </div>
@@ -1209,7 +1209,7 @@ function InvoiceModal({ customers, products, gstRates, orgDetail, orgId, onClose
           <div className="invoice-form-clean-footer">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'Saving…' : isEdit ? 'Save' : 'Create'}
+              {busy ? 'Saving�' : isEdit ? 'Save' : 'Create'}
             </button>
           </div>
         </form>
@@ -1300,7 +1300,7 @@ function CustomerModal({ orgId, onClose, onCreated, editing }: { orgId: string; 
           )}
           {warnings.length > 0 && (
             <div style={{ background: '#fff4e6', border: '1px solid #ff9800', padding: '12px', borderRadius: '6px', marginTop: '12px' }}>
-              <strong style={{ color: '#e65100' }}>⚠️ Warning</strong>
+              <strong style={{ color: '#e65100' }}>?? Warning</strong>
               <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', color: '#e65100' }}>
                 {warnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
@@ -1312,7 +1312,7 @@ function CustomerModal({ orgId, onClose, onCreated, editing }: { orgId: string; 
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}>{isEdit ? (busy ? 'Saving…' : 'Save changes') : (busy ? 'Adding…' : 'Add customer')}</button>
+            <button className="primary" disabled={busy}>{isEdit ? (busy ? 'Saving�' : 'Save changes') : (busy ? 'Adding�' : 'Add customer')}</button>
           </div>
         </form>
       </section>
@@ -1369,7 +1369,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
               <select name="invoice">
                 <option value="">No allocation</option>
                 {custInvoices.map(i => (
-                  <option key={i.id} value={i.id}>{i.invoice_number} — {money(i.balance_minor)} outstanding</option>
+                  <option key={i.id} value={i.id}>{i.invoice_number} � {money(i.balance_minor)} outstanding</option>
                 ))}
               </select>
             </label>
@@ -1392,7 +1392,7 @@ function PaymentModal({ customers, invoices, orgId, onClose, onCreated }: {
           {err && <div className="form-error">{err}</div>}
           <div className="modal-foot">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
-            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Recording…' : 'Record payment'}</button>
+            <button className="primary" disabled={busy}><Plus size={15} />{busy ? 'Recording�' : 'Record payment'}</button>
           </div>
         </form>
       </section>
@@ -1567,16 +1567,16 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
       {tab === 'products' && (
         <div className="table-wrap">
           <div style={{ padding: '12px 20px' }}>
-            <div className="search"><Search size={15} /><input placeholder="Search products…" value={query} onChange={e => setQuery(e.target.value)} /></div>
+            <div className="search"><Search size={15} /><input placeholder="Search products�" value={query} onChange={e => setQuery(e.target.value)} /></div>
           </div>
           <table>
             <thead><tr><th>PRODUCT</th><th>SKU</th><th>HSN/SAC</th><th>PRICE</th><th>DEFAULT GST</th><th>STATUS</th><th></th></tr></thead>
             <tbody>
               {filteredProducts.map(p => (
                 <tr key={p.id}>
-                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} · {p.description?.slice(0, 40)}</div></td>
-                  <td>{p.sku || '—'}</td>
-                  <td>{p.hsn_sac || '—'}</td>
+                  <td className="strong">{p.name}<div style={{ fontWeight: 400, color: '#9ba29d', fontSize: 10 }}>{p.unit} � {p.description?.slice(0, 40)}</div></td>
+                  <td>{p.sku || '�'}</td>
+                  <td>{p.hsn_sac || '�'}</td>
                   <td className="amount">{money(p.price_minor)}</td>
                   <td>{p.default_gst_rate_bps ? `${p.default_gst_rate_name} (${p.default_gst_rate_bps / 100}%)` : 'No GST'}</td>
                   <td>{p.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
@@ -1602,7 +1602,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
                   <td className="strong">{r.name}</td>
                   <td className="amount">{r.rate_percent}</td>
                   <td style={{ fontSize: 10 }}>{r.preview}</td>
-                  <td>{r.in_use ? <span className="status issued">Yes</span> : '—'}</td>
+                  <td>{r.in_use ? <span className="status issued">Yes</span> : '�'}</td>
                   <td>{r.active ? <span className="status paid">Active</span> : <span className="status draft">Inactive</span>}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button className="icon-btn" title="Edit" onClick={() => onOpenRateModal(r)}><Pencil size={14} /></button>
@@ -1614,7 +1614,7 @@ function ProductsPage({ orgId, products, gstRates, onReload, onOpenProductModal,
           </table>
           {gstRates.length === 0 && <div className="empty">No GST rates yet. Add your first rate.</div>}
           {gstRates.some(r => r.in_use && !r.active) && (
-            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices — they are preserved as snapshots.</div>
+            <div className="notice" style={{ margin: 12 }}>Some rates are deactivated but still referenced by past invoices � they are preserved as snapshots.</div>
           )}
         </div>
       )}
@@ -1660,7 +1660,7 @@ function AutoHeightIframe({
       const current = parseInt(iframe.style.height, 10)
       if (h > 0 && h !== current) iframe.style.height = `${h}px`
     } catch {
-      // contentDocument unavailable (cross-origin / not loaded yet) — skip.
+      // contentDocument unavailable (cross-origin / not loaded yet) � skip.
     }
   }, [])
 
@@ -1999,7 +1999,7 @@ function ScheduleFormModal({
                     }}
                     style={{ ...iStyle, borderColor: fieldErrors[`step_${idx}_template`] ? '#dc2626' : '#d1d5db' }}
                   >
-                    <option value="">— choose a template —</option>
+                    <option value="">� choose a template �</option>
                     {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                   {fieldErrors[`step_${idx}_template`] && <div style={eStyle}>{fieldErrors[`step_${idx}_template`]}</div>}
@@ -2035,7 +2035,7 @@ function ScheduleFormModal({
 
 
 
-// ── Notification display helpers ──────────────────────────────────────────
+// -- Notification display helpers ------------------------------------------
 
 function notifTitle(n: Notification): string {
   switch (n.event_type) {
@@ -2064,25 +2064,25 @@ function buildDetailLine(n: Notification, d: NotificationDetails): string {
       const over = d.days_overdue && d.days_overdue > 0
         ? `, ${d.days_overdue} day${d.days_overdue !== 1 ? 's' : ''} overdue`
         : (d.due_date ? `, due ${fmtDate(d.due_date)}` : '')
-      const step = d.step_label ? ` · ${d.step_label}` : ''
-      return `${name}${inv ? ' · ' + inv : ''}${amt}${over}${step}`
+      const step = d.step_label ? ` � ${d.step_label}` : ''
+      return `${name}${inv ? ' � ' + inv : ''}${amt}${over}${step}`
     }
     case 'reminder_failed': {
       const name = d.customer_name || ''
       const inv  = d.invoice_number ? `Invoice ${d.invoice_number}` : ''
-      const reason = d.block_reason ? ` — ${d.block_reason}` : ''
-      return [name, inv].filter(Boolean).join(' · ') + reason
+      const reason = d.block_reason ? ` � ${d.block_reason}` : ''
+      return [name, inv].filter(Boolean).join(' � ') + reason
     }
     case 'import_complete': {
       const file = d.file_name || 'File'
       const type = d.batch_type === 'bank_statement' ? 'bank statement' : 'invoices'
-      const rows = d.rows_created != null ? ` · ${d.rows_created} created` : ''
+      const rows = d.rows_created != null ? ` � ${d.rows_created} created` : ''
       const rej  = d.rows_rejected && d.rows_rejected > 0 ? `, ${d.rows_rejected} rejected` : ''
       return `${file} (${type})${rows}${rej}`
     }
     case 'import_failed': {
       const file = d.file_name || 'Import failed'
-      const rej  = d.rows_rejected && d.rows_rejected > 0 ? ` · ${d.rows_rejected} rows failed` : ''
+      const rej  = d.rows_rejected && d.rows_rejected > 0 ? ` � ${d.rows_rejected} rows failed` : ''
       return `${file}${rej}`
     }
     case 'reconciliation_review': {
@@ -2092,7 +2092,7 @@ function buildDetailLine(n: Notification, d: NotificationDetails): string {
       const parts: string[] = []
       if (u > 0) parts.push(`${u} unmatched`)
       if (s > 0) parts.push(`${s} with suggestions`)
-      return parts.join(', ') + ' — open Reconciliation to review'
+      return parts.join(', ') + ' � open Reconciliation to review'
     }
     default:
       return ''
@@ -2113,7 +2113,7 @@ function notifTarget(n: Notification): 'reminders' | 'reconciliation' | 'import'
       return null
   }
 }
-// ── NotificationsPage helpers ─────────────────────────────────────────────
+// -- NotificationsPage helpers ---------------------------------------------
 
 function relativeTime(isoStr: string): string {
   const diff = Date.now() - new Date(isoStr).getTime()
@@ -2187,7 +2187,7 @@ function groupNotifsByDate(notifs: Notification[]): { label: string; items: Noti
   return order.filter(l => buckets[l]).map(l => ({ label: l, items: buckets[l] }))
 }
 
-// ── NotificationsPage component ───────────────────────────────────────────
+// -- NotificationsPage component -------------------------------------------
 
 function NotificationsPage({
   notifications,
@@ -2373,7 +2373,7 @@ function NotificationsPage({
                         <div className="notif-row-line2">
                           {d.customer_name && <span>{d.customer_name}</span>}
                           {d.customer_name && (d.invoice_number || d.due_date || d.step_label) && (
-                            <span style={{ color: '#4A5568' }}>·</span>
+                            <span style={{ color: '#4A5568' }}>�</span>
                           )}
                           {d.invoice_number && (
                             <span className="notif-inv-chip">{d.invoice_number}</span>
@@ -2401,7 +2401,7 @@ function NotificationsPage({
                             Approve
                           </button>
                         ) : hasTarget ? (
-                          <span className="notif-quick-chevron" style={{ fontSize: 14 }}>›</span>
+                          <span className="notif-quick-chevron" style={{ fontSize: 14 }}>�</span>
                         ) : null}
                       </div>
                     </div>
@@ -2434,24 +2434,24 @@ function NotificationsPage({
               <div className="notif-inspector-metrics">
                 <div>
                   <div className="notif-inspector-metric-label">Customer</div>
-                  <div className="notif-inspector-metric-value">{inspD.customer_name || '—'}</div>
+                  <div className="notif-inspector-metric-value">{inspD.customer_name || '�'}</div>
                 </div>
                 <div>
                   <div className="notif-inspector-metric-label">Invoice</div>
                   <div className={`notif-inspector-metric-value${inspD.invoice_number ? ' mono' : ''}`}>
-                    {inspD.invoice_number || '—'}
+                    {inspD.invoice_number || '�'}
                   </div>
                 </div>
                 <div>
                   <div className="notif-inspector-metric-label">Amount Due</div>
                   <div className={`notif-inspector-metric-value${inspD.outstanding_minor != null ? ' amount' : ''}`}>
-                    {inspD.outstanding_minor != null ? money(inspD.outstanding_minor) : '—'}
+                    {inspD.outstanding_minor != null ? money(inspD.outstanding_minor) : '�'}
                   </div>
                 </div>
                 <div>
                   <div className="notif-inspector-metric-label">Due Date</div>
                   <div className="notif-inspector-metric-value">
-                    {inspD.due_date ? fmtDate(inspD.due_date) : '—'}
+                    {inspD.due_date ? fmtDate(inspD.due_date) : '�'}
                   </div>
                 </div>
               </div>
@@ -2459,7 +2459,7 @@ function NotificationsPage({
               {/* Step label */}
               {inspD.step_label && (
                 <div style={{ background: 'rgba(42,52,72,0.4)', border: '1px solid #2A3448', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#A8B5C6', marginBottom: 14 }}>
-                  <span style={{ color: '#6B7A8D', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Step · </span>
+                  <span style={{ color: '#6B7A8D', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Step � </span>
                   {inspD.step_label}
                 </div>
               )}
@@ -2835,24 +2835,24 @@ function RemindersPage({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Invoice</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Customer</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Outstanding</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Due Date</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Step</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Scheduled</th>
-                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Actions</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Outstanding</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Due Date</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Step</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Scheduled</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
-                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                    <tr key={job.id} className="reminders-table-row">
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: 'var(--text-secondary)' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{job.customer_name}</td>
                       <td style={{ padding: '13px 14px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px', color: job.snapshot_days_overdue > 0 ? '#FB7185' : '#34D399' }}>
                         {money(job.current_outstanding_minor || job.snapshot_outstanding_minor)}
                       </td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#A8B5C6' }}>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                         <span className={job.snapshot_days_overdue > 0 ? 'overdue-date' : ''}>{fmtDate(job.snapshot_due_date)}</span>
                         {job.snapshot_days_overdue > 0 && (
                           <span style={{ marginLeft: '8px', fontSize: '11px', color: '#FB7185', background: 'rgba(76,29,36,0.5)', padding: '1px 6px', borderRadius: '999px' }}>
@@ -2870,7 +2870,7 @@ function RemindersPage({
                           Step {job.step_number}
                         </span>
                       </td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#6B7A8D' }}>{fmtDate(job.scheduled_date)}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>{fmtDate(job.scheduled_date)}</td>
                       <td style={{ padding: '13px 14px', textAlign: 'right' }}>
                         <button onClick={() => handlePreview(job)} style={{
                           padding: '6px 12px', background: 'linear-gradient(to right, #14B8A6, #03B5D3)', color: '#003731',
@@ -2905,19 +2905,19 @@ function RemindersPage({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Sent At</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Invoice</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Customer</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'right' }}>Amount Sent For</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Step</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Sent At</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'right' }}>Amount Sent For</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Step</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
-                      <td style={{ padding: '13px 14px', fontSize: '12px', color: '#6B7A8D', fontVariantNumeric: 'tabular-nums' }}>{job.dispatched_at ? new Date(job.dispatched_at).toLocaleString('en-IN') : '—'}</td>
-                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                    <tr key={job.id} className="reminders-table-row">
+                      <td style={{ padding: '13px 14px', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{job.dispatched_at ? new Date(job.dispatched_at).toLocaleString('en-IN') : '�'}</td>
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: 'var(--text-secondary)' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{job.customer_name}</td>
                       <td style={{ padding: '13px 14px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px', color: '#4FDBC8' }}>{money(job.sent_outstanding_minor || job.snapshot_outstanding_minor)}</td>
                       <td style={{ padding: '13px 14px' }}>
                         <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: '#0F3D2E', color: '#86EFAC' }}>
@@ -2946,19 +2946,19 @@ function RemindersPage({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Invoice</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Customer</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Error</th>
-                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Retry Count</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Error</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>Retry Count</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
-                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                    <tr key={job.id} className="reminders-table-row">
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: 'var(--text-secondary)' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{job.customer_name}</td>
                       <td style={{ padding: '13px 14px', color: '#FB7185', fontSize: '12px' }}>{job.block_reason || 'Unknown error'}</td>
-                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#A8B5C6' }}>{job.retry_count || 0}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>{job.retry_count || 0}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2999,7 +2999,7 @@ function RemindersPage({
                         )}
                       </div>
                       <div style={{ fontSize: '13px', color: '#6B7A8D', marginTop: '4px' }}>
-                        {schedule.step_count} steps · Business hours: {schedule.send_hour_start}:00–{schedule.send_hour_end}:00
+                        {schedule.step_count} steps � Business hours: {schedule.send_hour_start}:00�{schedule.send_hour_end}:00
                       </div>
                     </div>
                     <div style={{
@@ -3016,7 +3016,7 @@ function RemindersPage({
                       padding: '8px 16px', background: '#f3f4f6', border: 'none',
                       borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px'
                     }}>
-                      View Steps â†’
+                      View Steps →
                     </button>
                     <button onClick={() => { setEditingSchedule(schedule); setShowScheduleModal(true) }} style={{
                       padding: '8px 16px', background: 'rgba(25,31,47,0.8)', border: '1px solid #2A3448',
@@ -3073,7 +3073,7 @@ function RemindersPage({
               ) : (
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {steps.map(step => (
-                    <div key={step.id} style={{ background: 'rgba(25,31,47,0.6)', border: '1px solid rgba(42,52,72,0.6)', borderRadius: '10px', padding: '14px' }}>
+                    <div key={step.id} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                         <div>
                           <div style={{ fontWeight: 600, marginBottom: '4px', color: '#EEF0FF', fontSize: '13px' }}>
@@ -3124,7 +3124,7 @@ function RemindersPage({
           onClose={() => { setShowScheduleModal(false); setEditingSchedule(null) }}
         />
       )}
-      {/* Email Preview Modal — two-pane redesign */}
+      {/* Email Preview Modal � two-pane redesign */}
       {/* Archive Confirmation Dialog */}
       {archiveConfirm && (
         <div
@@ -3250,7 +3250,7 @@ function RemindersPage({
                       border: '1px solid #f59e0b', borderRadius: '8px',
                       fontSize: '13px', color: '#92400e'
                     }}>
-                      This reminder is no longer pending — it was <strong>{previewJob.status_display || previewJob.status}</strong>.
+                      This reminder is no longer pending � it was <strong>{previewJob.status_display || previewJob.status}</strong>.
                       {previewJob.status === 'dispatched' && previewJob.dispatched_at && (
                         <span> Sent on {new Date(previewJob.dispatched_at).toLocaleString('en-IN')}.</span>
                       )}
@@ -3379,7 +3379,7 @@ function RemindersPage({
                   </label>
                 </aside>
 
-                {/* Right Pane — sole scroll region */}
+                {/* Right Pane � sole scroll region */}
                 <section style={{
                   display: 'flex', flexDirection: 'column',
                   background: '#f3f4f6', minHeight: 0, overflow: 'hidden'
@@ -3529,7 +3529,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [gstRates, setGstRates] = useState<GSTRate[]>([])
   const [orgDetail, setOrgDetail] = useState<OrganizationDetail | null>(null)
-  // FORECAST DISABLED — uncomment to re-enable
+  // FORECAST DISABLED � uncomment to re-enable
   // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -3647,7 +3647,7 @@ export default function App() {
     setCustomers([])
     setPayments([])
     setAging(null)
-    // FORECAST DISABLED — uncomment to re-enable
+    // FORECAST DISABLED � uncomment to re-enable
     // setForecast(null)
     setNotifications([])
     setUnreadCount(0)
@@ -3660,7 +3660,7 @@ export default function App() {
     try {
       await api.logout(org?.id)
     } catch {
-      // Proceed even if backend call fails — clear client state regardless
+      // Proceed even if backend call fails � clear client state regardless
     }
     broadcastLogout()
     clearAuth()
@@ -3679,7 +3679,7 @@ export default function App() {
   useEffect(() => {
     const unsub = subscribeLogoutChannel(() => {
       clearAuth()
-      // No toast here — only the initiating tab shows "Logged out successfully"
+      // No toast here � only the initiating tab shows "Logged out successfully"
     })
     return unsub
   }, [clearAuth])
@@ -3736,9 +3736,9 @@ export default function App() {
     { name: 'Payments', icon: Wallet },
     { name: 'Aging report', icon: Clock3 },
     { name: 'Reminders', icon: Bell },
-    // RECONCILIATION DISABLED — uncomment to re-enable
+    // RECONCILIATION DISABLED � uncomment to re-enable
     // { name: 'Reconciliation', icon: GitMerge, soon: true },
-    // FORECAST DISABLED — uncomment to re-enable
+    // FORECAST DISABLED � uncomment to re-enable
     // { name: 'Forecast', icon: TrendingUp },
     { name: 'AI Assistant', icon: Bot },
   ]
@@ -3790,7 +3790,7 @@ export default function App() {
             <Bell size={17} />Notifications
             {unreadCount > 0 && <span className="soon">{unreadCount}</span>}
           </button>
-          {/* AUDIT LOG DISABLED — uncomment to re-enable */}
+          {/* AUDIT LOG DISABLED � uncomment to re-enable */}
           {/* <button className="nav-item" onClick={() => setPage('Audit Log')}><ShieldCheck size={17} />Audit Log</button> */}
           <button className="nav-item" onClick={() => setPage('Settings')}><Settings2 size={17} />Settings</button>
           <div className="profile">
@@ -3804,7 +3804,7 @@ export default function App() {
             disabled={loggingOut}
             aria-label="Sign out"
           >
-            <LogOut size={15} /><span>{loggingOut ? 'Signing out…' : 'Sign out'}</span>
+            <LogOut size={15} /><span>{loggingOut ? 'Signing out�' : 'Sign out'}</span>
           </button>
         </div>
       </aside>
@@ -3820,7 +3820,7 @@ export default function App() {
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
             <button className="icon-btn" title="Help"><CircleHelp size={18} /></button>
-            {/* Mobile logout — hidden on desktop via CSS class */}
+            {/* Mobile logout � hidden on desktop via CSS class */}
             <button
               className="icon-btn logout-btn-mobile"
               title="Sign out"
@@ -3879,9 +3879,9 @@ export default function App() {
                 <div className="aging-list">
                   {[
                     ['Not yet due', 'not_yet_due', 'blue'],
-                    ['1–30 days', 'days_1_30', 'green'],
-                    ['31–60 days', 'days_31_60', 'amber'],
-                    ['61–90 days', 'days_61_90', 'orange'],
+                    ['1�30 days', 'days_1_30', 'green'],
+                    ['31�60 days', 'days_31_60', 'amber'],
+                    ['61�90 days', 'days_61_90', 'orange'],
                     ['Over 90 days', 'over_90', 'rose'],
                   ].map(([title, key, tone]) => (
                     <div className="aging-row" key={key}>
@@ -4025,7 +4025,7 @@ export default function App() {
                                     <td className="amount">{money(inv.total_minor)}</td>
                                     <td className="amount">{money(inv.paid_minor)}</td>
                                     <td className="amount">{money(inv.balance_minor)}</td>
-                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : '—'}</td>
+                                    <td className={isOverdue ? 'amount' : ''}>{isOverdue ? money(overdueAmt) : '�'}</td>
                                     <td><StatusBadge s={inv.display_status} /></td>
                                   </tr>
                                 )
@@ -4045,7 +4045,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>All invoices</h2><p>{filtered.length} invoices in your workspace</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="Search invoices…" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="Search invoices�" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <select className="status-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option value="">All statuses</option><option value="overdue">Overdue</option><option value="issued">Unpaid</option><option value="partially_paid">Partially Paid</option><option value="paid">Paid</option><option value="draft">Draft</option></select>
                   <a href={`/api/v1/exports/invoices/?`} className="secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 7, padding: '9px 13px', border: '1px solid #e4e9e6', fontSize: 12, fontWeight: 600, color: '#52615a', background: '#fff' }} onClick={e => { e.preventDefault(); fetch(`/api/v1/exports/invoices/`, { credentials: 'include', headers: { 'X-Organization-ID': org.id } }).then(r => r.blob()).then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'invoices.csv'; a.click() }) }}>
                     <Download size={15} /> Export
@@ -4063,7 +4063,7 @@ export default function App() {
               <div className="panel-head">
                 <div><h2>Customers</h2><p>{customers.length} customers</p></div>
                 <div className="toolbar">
-                  <div className="search"><Search size={15} /><input placeholder="Search…" value={query} onChange={e => setQuery(e.target.value)} /></div>
+                  <div className="search"><Search size={15} /><input placeholder="Search�" value={query} onChange={e => setQuery(e.target.value)} /></div>
                   <button className="primary" onClick={() => setModal('customer')}><Plus size={16} /> Add customer</button>
                 </div>
               </div>
@@ -4076,8 +4076,8 @@ export default function App() {
                       return (
                         <tr key={c.id}>
                           <td className="strong">{c.name}</td>
-                          <td>{c.email || '—'}</td>
-                          <td>{c.phone || '—'}</td>
+                          <td>{c.email || '�'}</td>
+                          <td>{c.phone || '�'}</td>
                           <td>{open.length}</td>
                           <td className="amount">{money(open.reduce((a, x) => a + x.balance_minor, 0))}</td>
                           <td>{c.opt_out ? <span className="status overdue">Opted out</span> : <span className="status paid">Active</span>}</td>
@@ -4106,12 +4106,12 @@ export default function App() {
                     {payments.map(p => (
                       <tr key={p.id}>
                         <td>{fmtDate(p.payment_date)}</td>
-                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || '—'}</td>
+                        <td className="strong">{customers.find(c => c.id === p.customer)?.name || '�'}</td>
                         <td className="amount">{money(p.amount_minor)}</td>
                         <td>{p.method.replace(/_/g, ' ')}</td>
-                        <td>{p.reference || '—'}</td>
-                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || '—'}</td>
-                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : '—'}</td>
+                        <td>{p.reference || '�'}</td>
+                        <td>{p.allocations.map(a => a.invoice_number).join(', ') || '�'}</td>
+                        <td className={p.unallocated_minor > 0 ? 'amount' : ''}>{p.unallocated_minor > 0 ? money(p.unallocated_minor) : '�'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -4125,18 +4125,18 @@ export default function App() {
           {page === 'Aging report' && (
             <div className="panel">
               <div className="panel-head">
-                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} · Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
+                <div><h2>Invoice aging report</h2><p>As of {aging?.as_of || 'today'} � Total outstanding: {money(aging?.grand_total_minor || 0)}</p></div>
                 <button className="secondary" onClick={() => org && api.aging(org.id).then(setAging)}><RefreshCw size={15} /> Refresh</button>
               </div>
               {(['not_yet_due', 'days_1_30', 'days_31_60', 'days_61_90', 'over_90'] as const).map(key => {
                 const rows = aging?.buckets?.[key] || []
                 const labels: Record<string, string> = {
-                  not_yet_due: 'Not yet due', days_1_30: '1–30 days overdue',
-                  days_31_60: '31–60 days overdue', days_61_90: '61–90 days overdue', over_90: 'Over 90 days overdue',
+                  not_yet_due: 'Not yet due', days_1_30: '1�30 days overdue',
+                  days_31_60: '31�60 days overdue', days_61_90: '61�90 days overdue', over_90: 'Over 90 days overdue',
                 }
                 return (
                   <div className="aging-section" key={key}>
-                    <h3>{labels[key]} — {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
+                    <h3>{labels[key]} � {money(rows.reduce((a, r) => a + r.balance_minor, 0))} <span style={{ fontWeight: 400, color: '#9ba29d' }}>({rows.length} invoices)</span></h3>
                     {rows.length ? rows.map(r => (
                       <div className="aging-invoice" key={r.id}>
                         <b>{r.invoice_number}</b>
@@ -4151,7 +4151,7 @@ export default function App() {
             </div>
           )}
 
-          {/* -- Forecast -- DISABLED — uncomment to re-enable */}
+          {/* -- Forecast -- DISABLED � uncomment to re-enable */}
           {/* {page === 'Forecast' && (
             <ForecastPage orgId={org.id} />
           )} */}
@@ -4160,7 +4160,7 @@ export default function App() {
           {page === 'AI Assistant' && (
             <div className="panel ai-panel">
               <div className="panel-head">
-                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord — answers are based on your live data.</p></div>
+                <div><h2>AI Finance Assistant</h2><p>Ask questions about your FinancialRecord � answers are based on your live data.</p></div>
               </div>
               <div className="ai-body">
                 <div className="ai-disclaimer">
@@ -4175,11 +4175,11 @@ export default function App() {
                     className="ai-input"
                   />
                   <button className="primary" disabled={asking || !question.trim()}>
-                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking…</> : <><Bot size={15} /> Ask</>}
+                    {asking ? <><RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} /> Thinking�</> : <><Bot size={15} /> Ask</>}
                   </button>
                 </form>
 
-                {/* Error banner — shown instead of the answer box */}
+                {/* Error banner � shown instead of the answer box */}
                 {aiError && (
                   <div className={`ai-error-banner ${aiError.type === 'llm_quota_exceeded' ? 'ai-error-quota' : 'ai-error-generic'}`}>
                     <div className="ai-error-header">
@@ -4194,7 +4194,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Answer box — only shown on success */}
+                {/* Answer box � only shown on success */}
                 {answer && !aiError && (
                   <div className="ai-answer">
                     <div className="ai-answer-label"><CheckCircle size={14} /> Answer</div>
@@ -4241,7 +4241,7 @@ export default function App() {
             />
           )}
 
-          {/* -- Audit log -- DISABLED — uncomment to re-enable */}
+          {/* -- Audit log -- DISABLED � uncomment to re-enable */}
           {/* {page === 'Audit Log' && <AuditLogPage orgId={org.id} />} */}
 
           {/* -- Settings -- */}
@@ -4270,7 +4270,7 @@ export default function App() {
           )}
 
           {/* -- Reminders / Reconciliation (coming soon) -- */}
-          {/* RECONCILIATION DISABLED — uncomment `|| page === 'Reconciliation'` to re-enable */}
+          {/* RECONCILIATION DISABLED � uncomment `|| page === 'Reconciliation'` to re-enable */}
           {(page === 'Reminders' && org) && (
             <RemindersPage
               org={org}
@@ -4280,7 +4280,7 @@ export default function App() {
           )}
 
           <footer>
-            FinPilot AI <span>·</span> INR reporting <span>·</span> Data as of {dashboard?.as_of || 'today'}
+            FinPilot AI <span>�</span> INR reporting <span>�</span> Data as of {dashboard?.as_of || 'today'}
             <span className="footer-right">Questions? <a href="mailto:support@finpilot.ai">Talk to our team</a></span>
           </footer>
         </section>
@@ -4363,7 +4363,7 @@ export default function App() {
                 aria-busy={loggingOut}
                 data-testid="confirm-logout-btn"
               >
-                <LogOut size={15} />{loggingOut ? 'Signing out…' : 'Sign out'}
+                <LogOut size={15} />{loggingOut ? 'Signing out�' : 'Sign out'}
               </button>
             </div>
           </section>
@@ -4373,7 +4373,7 @@ export default function App() {
   )
 }
 
-// -- Forecast page component -- DISABLED — uncomment to re-enable -------------
+// -- Forecast page component -- DISABLED � uncomment to re-enable -------------
 /*
 function ForecastPage({ orgId }: { orgId: string }) {
   const [period, setPeriod] = useState<7 | 30 | 60>(30)
@@ -4389,7 +4389,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
   return (
     <div className="panel">
       <div className="panel-head">
-        <div><h2>Cash inflow forecast</h2><p>Expected receivables — not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
+        <div><h2>Cash inflow forecast</h2><p>Expected receivables � not a full cash balance. Excludes expenses, payroll, and other outflows.</p></div>
         <div className="toolbar">
           <select value={period} onChange={e => setPeriod(Number(e.target.value) as 7 | 30 | 60)} style={{ height: 34, borderRadius: 7, border: '1px solid #e3e8e5', padding: '0 9px', fontSize: 12 }}>
             <option value={7}>7 days</option>
@@ -4402,7 +4402,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </select>
         </div>
       </div>
-      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecast…</div>}
+      {loading && <div className="empty"><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading forecast�</div>}
       {data && !loading && (
         <div style={{ padding: '0 24px 20px' }}>
           {data.insufficient_history && (
@@ -4422,9 +4422,9 @@ function ForecastPage({ orgId }: { orgId: string }) {
           </div>
           <div style={{ fontSize: 11, color: '#9aa39e', marginTop: 12, borderTop: '1px solid #f0f2f1', paddingTop: 12 }}>
             <strong>Assumptions:</strong>{' '}
-            Timing: {String(data.assumptions.timing_assumption)}{' '}·{' '}
-            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}·{' '}
-            Base offset: {String(data.assumptions.base_offset_days)} days{' '}·{' '}
+            Timing: {String(data.assumptions.timing_assumption)}{' '}�{' '}
+            Conservative offset: +{String(data.assumptions.conservative_offset_days)} days{' '}�{' '}
+            Base offset: {String(data.assumptions.base_offset_days)} days{' '}�{' '}
             Optimistic offset: {String(data.assumptions.optimistic_offset_days)} days
           </div>
         </div>
@@ -4434,7 +4434,7 @@ function ForecastPage({ orgId }: { orgId: string }) {
 }
 */
 
-// -- Audit log page -- DISABLED — uncomment to re-enable ---------------------
+// -- Audit log page -- DISABLED � uncomment to re-enable ---------------------
 /*
 function AuditLogPage({ orgId }: { orgId: string }) {
   const [logs, setLogs] = useState<import('./lib/api').AuditLog[]>([])

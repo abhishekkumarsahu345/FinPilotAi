@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Red+Hat+Mono:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Red+Hat+Mono:wght@500&display=swap');
 
 /* == Design tokens: light mode == */
 :root {
@@ -89,7 +89,7 @@
 
 /* == Design tokens: dark mode == */
 [data-theme="dark"] {
-  /* ── Canvas & surfaces ── */
+  /* -- Canvas & surfaces -- */
   --bg-page: #0D1322;
   --bg-surface: #151B2B;
   --bg-surface-2: #191F2F;
@@ -100,34 +100,34 @@
   --border-muted: rgba(42, 52, 72, 0.5);
   --border-medium: #2A3448;
 
-  /* ── Text ── */
+  /* -- Text -- */
   --text-primary: #EEF0FF;
   --text-body: #C8D4E0;
   --text-secondary: #A8B5C6;
   --text-muted: #6B7A8D;
   --text-faint: #3D4D60;
 
-  /* ── Accent (teal-cyan primary) ── */
+  /* -- Accent (teal-cyan primary) -- */
   --accent: #14B8A6;
   --accent-hover: #0D9B8A;
   --accent-light: rgba(20, 184, 166, 0.12);
   --accent-text: #4FDBC8;
   --link-color: #4FDBC8;
 
-  /* ── Sidebar & topbar ── */
+  /* -- Sidebar & topbar -- */
   --sidebar-bg: rgba(8, 14, 29, 0.82);
   --sidebar-border: #2A3448;
   --topbar-bg: rgba(8, 14, 29, 0.82);
   --topbar-border: #2A3448;
 
-  /* ── Inputs ── */
+  /* -- Inputs -- */
   --input-bg: #191F2F;
   --input-border: #2A3448;
   --input-focus-border: #22D3EE;
   --input-focus-shadow: rgba(34, 211, 238, 0.15);
   --input-color: #EEF0FF;
 
-  /* ── KPI icon tiles (spec semantic colors) ── */
+  /* -- KPI icon tiles (spec semantic colors) -- */
   --metric-icon-blue-bg: #1E3A5F;
   --metric-icon-blue-fg: #60A5FA;
   --metric-icon-rose-bg: #4C1D24;
@@ -137,7 +137,7 @@
   --metric-icon-green-bg: #0F3D2E;
   --metric-icon-green-fg: #34D399;
 
-  /* ── Status pills ── */
+  /* -- Status pills -- */
   --status-default-bg: rgba(47, 52, 69, 0.8);
   --status-default-fg: #A8B5C6;
   --status-overdue-bg: #4C1D24;
@@ -151,17 +151,17 @@
   --status-draft-bg: #242A3A;
   --status-draft-fg: #A8B5C6;
 
-  /* ── Overlays & modals ── */
+  /* -- Overlays & modals -- */
   --modal-bg: #151B2B;
   --modal-shadow: rgba(0, 0, 0, 0.7);
   --backdrop-bg: rgba(0, 0, 0, 0.72);
 
-  /* ── Notice/toast ── */
+  /* -- Notice/toast -- */
   --notice-bg: rgba(15, 61, 46, 0.6);
   --notice-fg: #34D399;
   --notice-border: rgba(52, 211, 153, 0.3);
 
-  /* ── AI assistant ── */
+  /* -- AI assistant -- */
   --ai-answer-bg: rgba(21, 27, 43, 0.72);
   --ai-answer-border: rgba(34, 211, 238, 0.2);
   --ai-chip-bg: #191F2F;
@@ -171,7 +171,7 @@
   --ai-disclaimer-bg: rgba(21, 27, 43, 0.5);
   --ai-disclaimer-border: #2A3448;
 
-  /* ── MDA markdown renderer ── */
+  /* -- MDA markdown renderer -- */
   --mda-bg-stat: rgba(79, 219, 200, 0.08);
   --mda-border-stat: rgba(79, 219, 200, 0.2);
   --mda-code-bg: rgba(8, 14, 29, 0.6);
@@ -183,24 +183,24 @@
   --mda-blockquote-bg: rgba(79, 219, 200, 0.06);
   --mda-blockquote-border: #4FDBC8;
 
-  /* ── Avatar ── */
+  /* -- Avatar -- */
   --avatar-bg: #2F3445;
   --avatar-fg: #4FDBC8;
 
-  /* ── Tip / AI card ── */
+  /* -- Tip / AI card -- */
   --tip-card-bg: linear-gradient(135deg, rgba(20,184,166,0.15), rgba(3,181,211,0.1));
   --tip-card-border: rgba(79, 219, 200, 0.25);
 
-  /* ── Scrollbar ── */
+  /* -- Scrollbar -- */
   --scrollbar-thumb: #2A3448;
   --scrollbar-track: transparent;
 
-  /* ── Iridescent accents (exposed for use in utility classes) ── */
+  /* -- Iridescent accents (exposed for use in utility classes) -- */
   --iris-cyan: #22D3EE;
   --iris-violet: #8B5CF6;
   --iris-pink: #F472B6;
 
-  /* ── CTA gradient ── */
+  /* -- CTA gradient -- */
   --cta-gradient: linear-gradient(to right, #14B8A6, #03B5D3);
   --cta-text: #003731;
 }
@@ -508,7 +508,7 @@ footer span{padding:0 5px;color:var(--text-muted)}
 .form-error{font-size:11px;color:#bd5e5e}
 .text-button{border:0;background:none;color:#74847a;font-size:11px;margin:12px auto 0;display:block}
 
-/* == New Auth Shell (two-column split) — kept hardcoded, light-only screen == */
+/* == New Auth Shell (two-column split) � kept hardcoded, light-only screen == */
 .auth-shell{min-height:100vh;background:#F4F7F5;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'DM Sans',sans-serif}
 .auth-window{width:min(1120px,100%);background:#fff;border-radius:24px;border:1px solid #DCE5DE;box-shadow:0 24px 60px -15px rgba(28,48,34,0.14),0 0 0 1px rgba(255,255,255,0.8) inset;overflow:hidden}
 .auth-titlebar{display:flex;align-items:center;gap:7px;padding:10px 16px;background:#f8faf9;border-bottom:1px solid #e8eeea}
@@ -556,7 +556,7 @@ footer span{padding:0 5px;color:var(--text-muted)}
 .auth-bottom-link button:hover{text-decoration:underline}
 .auth-left-foot{font-size:11px;color:#82918B;margin-top:auto;padding-top:28px}
 
-/* == Org Setup Shell — kept hardcoded, light-only screen == */
+/* == Org Setup Shell � kept hardcoded, light-only screen == */
 .org-setup-shell{min-height:100vh;background:#F4F7F5;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'DM Sans',sans-serif}
 .org-setup-window{width:min(1120px,100%);background:#fff;border-radius:24px;border:1px solid #DCE5DE;box-shadow:0 24px 60px -15px rgba(28,48,34,0.14);display:grid;grid-template-columns:5fr 7fr;overflow:hidden;min-height:600px}
 @media(max-width:860px){.org-setup-window{grid-template-columns:1fr}.org-aside{border-radius:0}}
@@ -1303,12 +1303,12 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 .auth-google-error strong{display:block;font-weight:600;margin-bottom:2px}
 
 
-/* ══════════════════════════════════════════════════════════════
-   HOLOGRAPHIC FINTECH DARK MODE — FinPilot AI Design System
+/* --------------------------------------------------------------
+   HOLOGRAPHIC FINTECH DARK MODE � FinPilot AI Design System
    Source of truth: "FinPilot AI: Holographic Fintech" spec
-   ══════════════════════════════════════════════════════════════ */
+   -------------------------------------------------------------- */
 
-/* ── 1. Utility classes (ambient canvas, glass surfaces, glows) ── */
+/* -- 1. Utility classes (ambient canvas, glass surfaces, glows) -- */
 
 .ambient-canvas {
   background-color: #0D1322;
@@ -1371,7 +1371,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   pointer-events: none;
 }
 
-/* ── 2. Dark mode: page background becomes ambient canvas ── */
+/* -- 2. Dark mode: page background becomes ambient canvas -- */
 [data-theme="dark"] .app-shell {
   background-color: #0D1322;
   background-image:
@@ -1392,7 +1392,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   font-family: 'Inter', 'DM Sans', sans-serif;
 }
 
-/* ── 3. Dark mode: sidebar ── */
+/* -- 3. Dark mode: sidebar -- */
 [data-theme="dark"] .sidebar {
   background: rgba(8, 14, 29, 0.82);
   backdrop-filter: blur(20px);
@@ -1466,7 +1466,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .icon-btn { color: #A8B5C6; }
 [data-theme="dark"] .icon-btn:hover { color: #4FDBC8; }
 
-/* ── 4. Dark mode: topbar ── */
+/* -- 4. Dark mode: topbar -- */
 [data-theme="dark"] .topbar {
   background: rgba(8, 14, 29, 0.82);
   backdrop-filter: blur(20px);
@@ -1488,7 +1488,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   font-weight: 700;
 }
 
-/* ── 5. Dark mode: main content area ── */
+/* -- 5. Dark mode: main content area -- */
 [data-theme="dark"] .main {
   background: transparent;
 }
@@ -1504,7 +1504,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .page-heading p { color: #A8B5C6; }
 [data-theme="dark"] .eyebrow { color: #6B7A8D; }
 
-/* ── 6. Dark mode: KPI metric cards (glass-iridescent) ── */
+/* -- 6. Dark mode: KPI metric cards (glass-iridescent) -- */
 [data-theme="dark"] .metric {
   background: rgba(21, 27, 43, 0.72);
   backdrop-filter: blur(16px);
@@ -1549,7 +1549,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   box-shadow: 0 8px 32px rgba(34, 211, 238, 0.12);
 }
 
-/* ── 7. Dark mode: panels / cards ── */
+/* -- 7. Dark mode: panels / cards -- */
 [data-theme="dark"] .panel {
   background: rgba(21, 27, 43, 0.72);
   backdrop-filter: blur(16px);
@@ -1582,7 +1582,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .link-btn { color: #4FDBC8; font-weight: 600; }
 [data-theme="dark"] .link-btn:hover { color: #22D3EE; }
 
-/* ── 8. Dark mode: tables ── */
+/* -- 8. Dark mode: tables -- */
 [data-theme="dark"] th {
   background: rgba(25, 31, 47, 0.6);
   color: #6B7A8D;
@@ -1618,7 +1618,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 /* Overdue dates in red */
 [data-theme="dark"] .overdue-date { color: #FB7185 !important; font-weight: 600; }
 
-/* ── 9. Dark mode: status pills (spec semantic colors) ── */
+/* -- 9. Dark mode: status pills (spec semantic colors) -- */
 [data-theme="dark"] .status {
   background: rgba(47, 52, 69, 0.8);
   color: #A8B5C6;
@@ -1633,7 +1633,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .status.issued { background: #1E3A5F; color: #DBEAFE; }
 [data-theme="dark"] .status.draft { background: #242A3A; color: #A8B5C6; }
 
-/* ── 10. Dark mode: buttons ── */
+/* -- 10. Dark mode: buttons -- */
 [data-theme="dark"] .primary {
   background: linear-gradient(to right, #14B8A6, #03B5D3);
   color: #003731;
@@ -1657,7 +1657,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   color: #4FDBC8;
 }
 
-/* ── 11. Dark mode: forms & inputs ── */
+/* -- 11. Dark mode: forms & inputs -- */
 [data-theme="dark"] .search {
   background: rgba(25, 31, 47, 0.8);
   border-color: #2A3448;
@@ -1674,7 +1674,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 }
 [data-theme="dark"] .status-filter-select:focus { border-color: #22D3EE; }
 
-/* ── 12. Dark mode: modals / backdrop ── */
+/* -- 12. Dark mode: modals / backdrop -- */
 [data-theme="dark"] .backdrop { background: rgba(0, 0, 0, 0.72); }
 [data-theme="dark"] .modal {
   background: rgba(21, 27, 43, 0.95);
@@ -1714,7 +1714,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 }
 [data-theme="dark"] .modal-foot { border-top-color: rgba(42, 52, 72, 0.5); }
 
-/* ── 13. Dark mode: AI assistant ── */
+/* -- 13. Dark mode: AI assistant -- */
 [data-theme="dark"] .ai-disclaimer {
   background: rgba(21, 27, 43, 0.5);
   border-color: #2A3448;
@@ -1755,7 +1755,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .ai-error-generic .ai-error-header { color: #FB7185; }
 [data-theme="dark"] .ai-error-banner p { color: #C8D4E0; }
 
-/* ── 14. Dark mode: MDA markdown renderer ── */
+/* -- 14. Dark mode: MDA markdown renderer -- */
 [data-theme="dark"] .mda-root { color: #C8D4E0; }
 [data-theme="dark"] .mda-root.mda-conversational { color: #C8D4E0; }
 [data-theme="dark"] .mda-root .mda-h1 { color: #EEF0FF; border-bottom-color: #2A3448; }
@@ -1793,27 +1793,27 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .mda-root .mda-tbody .mda-tr:hover .mda-td { background: rgba(79, 219, 200, 0.06) !important; }
 [data-theme="dark"] .mda-root .mda-amount { color: #4FDBC8; }
 
-/* ── 15. Dark mode: notice/toast ── */
+/* -- 15. Dark mode: notice/toast -- */
 [data-theme="dark"] .notice {
   background: rgba(15, 61, 46, 0.6);
   color: #34D399;
   border-color: rgba(52, 211, 153, 0.3);
 }
 
-/* ── 16. Dark mode: footer & misc ── */
+/* -- 16. Dark mode: footer & misc -- */
 [data-theme="dark"] footer { color: #3D4D60; }
 [data-theme="dark"] footer span { color: #6B7A8D; }
 [data-theme="dark"] .footer-right a { color: #4FDBC8; }
 [data-theme="dark"] .empty { color: #6B7A8D; }
 [data-theme="dark"] .sub-empty { color: #3D4D60; }
 
-/* ── 17. Dark mode: scrollbar ── */
+/* -- 17. Dark mode: scrollbar -- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2A3448; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #4FDBC8; }
 
-/* ── 18. Dark mode: theme toggle ── */
+/* -- 18. Dark mode: theme toggle -- */
 .theme-toggle {
   display: flex;
   align-items: center;
@@ -1845,7 +1845,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   color: #4FDBC8;
 }
 
-/* ── 19. Dark mode: Recharts charts ── */
+/* -- 19. Dark mode: Recharts charts -- */
 [data-theme="dark"] .recharts-text,
 [data-theme="dark"] .recharts-cartesian-axis-tick text,
 [data-theme="dark"] .recharts-label { fill: #6B7A8D !important; }
@@ -1859,7 +1859,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 }
 [data-theme="dark"] .recharts-legend-item-text { color: #A8B5C6 !important; }
 
-/* ── 20. Dark mode: aging dots ── */
+/* -- 20. Dark mode: aging dots -- */
 [data-theme="dark"] .aging-dot.blue { background: #60A5FA; }
 [data-theme="dark"] .aging-dot.green { background: #34D399; }
 [data-theme="dark"] .aging-dot.amber { background: #FBBF24; }
@@ -1872,7 +1872,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .aging-invoice strong { color: #EEF0FF; }
 [data-theme="dark"] .aging-row { border-top-color: rgba(42, 52, 72, 0.5); }
 
-/* ── 21. Dark mode: tip card (AI assistant card) ── */
+/* -- 21. Dark mode: tip card (AI assistant card) -- */
 [data-theme="dark"] .tip-card {
   background: linear-gradient(135deg, rgba(20,184,166,0.15), rgba(3,181,211,0.1));
   border: 1px solid rgba(79, 219, 200, 0.25);
@@ -1884,7 +1884,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .tip-card p { color: #A8B5C6; }
 [data-theme="dark"] .tip-card button { color: #4FDBC8; }
 
-/* ── 22. Dark mode: notifications ── */
+/* -- 22. Dark mode: notifications -- */
 [data-theme="dark"] .notif-badge { background: #FB7185; color: #0B1120; border-radius: 999px; }
 [data-theme="dark"] .notif-row { border-bottom-color: rgba(42, 52, 72, 0.5); }
 [data-theme="dark"] .notif-row.unread { background: rgba(25, 31, 47, 0.5); }
@@ -1893,7 +1893,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .notif-row.clickable:hover .notif-type { color: #4FDBC8; }
 [data-theme="dark"] .notif-time { color: #6B7A8D; }
 
-/* ── 23. Dark mode: logout buttons ── */
+/* -- 23. Dark mode: logout buttons -- */
 [data-theme="dark"] .logout-btn,
 [data-theme="dark"] .logout-row-btn { color: #6B7A8D; }
 [data-theme="dark"] .logout-btn:hover:not(:disabled),
@@ -1902,7 +1902,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   color: #FB7185;
 }
 
-/* ── 24. Dark mode: owing page ── */
+/* -- 24. Dark mode: owing page -- */
 [data-theme="dark"] .owing-customer-name strong { color: #EEF0FF; }
 [data-theme="dark"] .owing-amount { color: #EEF0FF; }
 [data-theme="dark"] .owing-customer-block { border-top-color: rgba(42, 52, 72, 0.5); }
@@ -1911,7 +1911,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .owing-meta { color: #6B7A8D; }
 [data-theme="dark"] .owing-avatar { background: #2F3445; color: #4FDBC8; }
 
-/* ── 25. Dark mode: invoice modals ── */
+/* -- 25. Dark mode: invoice modals -- */
 [data-theme="dark"] .invoice-modern-header {
   background: linear-gradient(135deg, #14B8A6 0%, #03B5D3 100%);
   color: #003731;
@@ -1984,7 +1984,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .invoice-total-grand span { color: #EEF0FF; }
 [data-theme="dark"] .invoice-modern-grand-total { border-top-color: rgba(42, 52, 72, 0.6); }
 
-/* ── 26. Dark mode: tabs (Products page) ── */
+/* -- 26. Dark mode: tabs (Products page) -- */
 [data-theme="dark"] .tab {
   background: rgba(25, 31, 47, 0.8);
   border-color: #2A3448;
@@ -2010,7 +2010,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .inv-totals { color: #A8B5C6; }
 [data-theme="dark"] .inv-totals .grand { color: #EEF0FF; }
 
-/* ── 27. Dark mode: empty states & coming soon ── */
+/* -- 27. Dark mode: empty states & coming soon -- */
 [data-theme="dark"] .coming {
   background: rgba(21, 27, 43, 0.72);
   backdrop-filter: blur(16px);
@@ -2022,7 +2022,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .coming p { color: #6B7A8D; }
 [data-theme="dark"] .coming-icon { background: rgba(79, 219, 200, 0.12); color: #4FDBC8; }
 
-/* ── 28. Dark mode: auth screens ── */
+/* -- 28. Dark mode: auth screens -- */
 [data-theme="dark"] .auth-shell {
   background: #0D1322;
   background-image:
@@ -2089,7 +2089,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .auth-divider::after { background: #2A3448; }
 [data-theme="dark"] .auth-google-error { background: rgba(76, 29, 36, 0.8); border-color: rgba(251, 113, 133, 0.4); color: #FFE4E6; }
 
-/* ── 29. Dark mode: org setup ── */
+/* -- 29. Dark mode: org setup -- */
 [data-theme="dark"] .org-setup-shell {
   background: #0D1322;
   background-image:
@@ -2143,7 +2143,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
 [data-theme="dark"] .org-success-icon { background: rgba(79, 219, 200, 0.12); border-color: rgba(79, 219, 200, 0.2); }
 [data-theme="dark"] .org-error-banner { background: rgba(76, 29, 36, 0.8); border-color: rgba(251, 113, 133, 0.4); color: #FFE4E6; }
 
-/* ── 30. Dark mode: Reminders page (overrides inline styles) ── */
+/* -- 30. Dark mode: Reminders page (overrides inline styles) -- */
 [data-theme="dark"] .reminder-page-btn-blue {
   background: rgba(30, 58, 106, 0.8) !important;
   color: #60A5FA !important;
@@ -2154,8 +2154,33 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   border-bottom-color: #4FDBC8 !important;
 }
 [data-theme="dark"] .reminder-page-tab { color: #6B7A8D !important; }
+/* Reminders table rows � explicit background so they don't go white in light mode
+   or transparent in dark mode. Applied in both themes; dark overrides below. */
+.reminders-table-row { background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); }
+.reminders-table-row:hover { background: var(--bg-surface-2); }
+.reminders-table-row td { background: transparent; }
 
-/* ── 31. Auth titlebar spacer and floating toggle ── */
+[data-theme="dark"] .reminders-table-row { background: rgba(21, 27, 43, 0.5); }
+[data-theme="dark"] .reminders-table-row:hover { background: rgba(36, 42, 58, 0.6); }
+
+/* Reminders table header � uses CSS vars so light/dark both look right */
+.reminders-table-row th,
+.glass-iridescent table th {
+  color: var(--text-muted);
+}
+[data-theme="dark"] .glass-iridescent table th {
+  color: #6B7A8D;
+  background: rgba(25, 31, 47, 0.6) !important;
+  border-bottom-color: rgba(42, 52, 72, 0.5) !important;
+}
+
+/* Reminders table body cells � restore dark-mode colours */
+[data-theme="dark"] .reminders-table-row td { color: #A8B5C6; }
+[data-theme="dark"] .reminders-table-row .rdr-primary { color: #EEF0FF !important; }
+[data-theme="dark"] .reminders-table-row .rdr-muted { color: #6B7A8D !important; }
+[data-theme="dark"] .reminders-table-row { border-bottom-color: rgba(42,52,72,0.5) !important; }
+
+/* -- 31. Auth titlebar spacer and floating toggle -- */
 .auth-titlebar-spacer { flex: 1; }
 .auth-floating-toggle {
   position: fixed;
@@ -2164,7 +2189,7 @@ button.metric.metric-clickable:active { transform: translateY(0); box-shadow: 0 
   z-index: 100;
 }
 
-/* ── 32. Mobile: invoice card list (dark mode) ── */
+/* -- 32. Mobile: invoice card list (dark mode) -- */
 @media (max-width: 650px) {
   [data-theme="dark"] .metrics { grid-template-columns: 1fr; }
   [data-theme="dark"] .metric-value { font-size: 22px; }
