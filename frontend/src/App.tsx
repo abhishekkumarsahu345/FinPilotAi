@@ -1,13 +1,29 @@
-﻿﻿// FinPilot AI - Invoice Module Improved
+﻿// FinPilot AI - Invoice Module Improved
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { MarkdownAnswer } from './components/MarkdownAnswer'
+import { useTheme } from './lib/theme'
 import {
   Activity, ArrowUpRight, Bell, ChevronDown, ChevronUp, CircleHelp, Clock3,
   FileSpreadsheet, FileText, LayoutDashboard, Loader2, LogOut, Plus, Search,
   Send, Settings2, ShieldCheck, Users, Wallet, X, Bot, /*GitMerge,*/
   TrendingUp, Download, CheckCircle, AlertCircle, RefreshCw,
-  Package, Pencil, Power, Percent, Tag,
+  Package, Pencil, Power, Percent, Tag, Sun, Moon,
 } from 'lucide-react'
+
+// -- Theme toggle button ----------------------------------------------------
+function ThemeToggle() {
+  const [theme, toggle] = useTheme()
+  return (
+    <button
+      className="theme-toggle"
+      onClick={toggle}
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+    </button>
+  )
+}
 import {
   api, ApiError, money, fmtDate, fmtQty,
   setUnauthenticatedHandler, broadcastLogout, subscribeLogoutChannel,
@@ -16,6 +32,7 @@ import {
   type Product, type GSTRate, type OrganizationDetail,
   type ReminderSchedule, type ReminderStep, type ReminderJob,
   type ReminderTemplate, type ScheduleStepInput, type ArchiveImpact,
+  type NotificationDetails,
 } from './lib/api'
 
 // -- Types ------------------------------------------------------------------
@@ -204,6 +221,8 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
           <span className="auth-titlebar-dot" style={{ background: '#febc2e' }} />
           <span className="auth-titlebar-dot" style={{ background: '#28c840' }} />
           <span className="auth-titlebar-label">FinPilot AI</span>
+          <span className="auth-titlebar-spacer" />
+          <ThemeToggle />
         </div>
 
         <div className="auth-columns">
@@ -498,6 +517,7 @@ function CreateOrgScreen({ user, onCreated, onLogout }: { user: User; onCreated:
 
   return (
     <main className="org-setup-shell">
+      <div className="auth-floating-toggle"><ThemeToggle /></div>
       <div className="org-setup-window">
         {/* -- LEFT aside: brand + feature cards -- */}
         <aside className="org-aside">
@@ -2014,7 +2034,478 @@ function ScheduleFormModal({
 }
 
 
-function RemindersPage({ org }: { org: Org }) {
+
+// ── Notification display helpers ──────────────────────────────────────────
+
+function notifTitle(n: Notification): string {
+  switch (n.event_type) {
+    case 'reminder_approval': return 'Reminder Awaiting Approval'
+    case 'reminder_failed':   return 'Reminder Delivery Failed'
+    case 'import_complete':   return 'Import Completed'
+    case 'import_failed':     return 'Import Failed'
+    case 'reconciliation_review': return 'Reconciliation Needs Review'
+    case 'forecast_failed':   return 'Forecast Failed'
+    case 'subscription_changed': return 'Subscription Changed'
+    case 'security_event':    return 'Security Event'
+    case 'membership_changed': return 'Team Membership Changed'
+    case 'payment_gateway':   return 'Payment Gateway Event'
+    default: return n.event_type.replace(/_/g, ' ')
+  }
+}
+
+function buildDetailLine(n: Notification, d: NotificationDetails): string {
+  if (d.error === 'details_unavailable') return 'Details no longer available'
+  switch (n.event_type) {
+    case 'reminder_approval': {
+      if (!d.customer_name && !d.invoice_number) return ''
+      const name = d.customer_name || 'Customer'
+      const inv  = d.invoice_number ? `Invoice ${d.invoice_number}` : ''
+      const amt  = d.outstanding_minor != null ? `, ${money(d.outstanding_minor)} due` : ''
+      const over = d.days_overdue && d.days_overdue > 0
+        ? `, ${d.days_overdue} day${d.days_overdue !== 1 ? 's' : ''} overdue`
+        : (d.due_date ? `, due ${fmtDate(d.due_date)}` : '')
+      const step = d.step_label ? ` · ${d.step_label}` : ''
+      return `${name}${inv ? ' · ' + inv : ''}${amt}${over}${step}`
+    }
+    case 'reminder_failed': {
+      const name = d.customer_name || ''
+      const inv  = d.invoice_number ? `Invoice ${d.invoice_number}` : ''
+      const reason = d.block_reason ? ` — ${d.block_reason}` : ''
+      return [name, inv].filter(Boolean).join(' · ') + reason
+    }
+    case 'import_complete': {
+      const file = d.file_name || 'File'
+      const type = d.batch_type === 'bank_statement' ? 'bank statement' : 'invoices'
+      const rows = d.rows_created != null ? ` · ${d.rows_created} created` : ''
+      const rej  = d.rows_rejected && d.rows_rejected > 0 ? `, ${d.rows_rejected} rejected` : ''
+      return `${file} (${type})${rows}${rej}`
+    }
+    case 'import_failed': {
+      const file = d.file_name || 'Import failed'
+      const rej  = d.rows_rejected && d.rows_rejected > 0 ? ` · ${d.rows_rejected} rows failed` : ''
+      return `${file}${rej}`
+    }
+    case 'reconciliation_review': {
+      const u = d.unmatched_count ?? 0
+      const s = d.suggested_count ?? 0
+      if (u === 0 && s === 0) return 'Transactions need review'
+      const parts: string[] = []
+      if (u > 0) parts.push(`${u} unmatched`)
+      if (s > 0) parts.push(`${s} with suggestions`)
+      return parts.join(', ') + ' — open Reconciliation to review'
+    }
+    default:
+      return ''
+  }
+}
+
+function notifTarget(n: Notification): 'reminders' | 'reconciliation' | 'import' | null {
+  switch (n.event_type) {
+    case 'reminder_approval':
+    case 'reminder_failed':
+      return 'reminders'
+    case 'reconciliation_review':
+      return 'reconciliation'
+    case 'import_complete':
+    case 'import_failed':
+      return 'import'
+    default:
+      return null
+  }
+}
+// ── NotificationsPage helpers ─────────────────────────────────────────────
+
+function relativeTime(isoStr: string): string {
+  const diff = Date.now() - new Date(isoStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 48) return 'yesterday'
+  return new Date(isoStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+}
+
+function notifIconColor(eventType: string, read: boolean): 'amber' | 'red' | 'green' | 'blue' | 'slate' {
+  if (read) return 'slate'
+  switch (eventType) {
+    case 'reminder_approval': return 'amber'
+    case 'reminder_failed': return 'red'
+    case 'import_complete': return 'green'
+    case 'import_failed': return 'red'
+    case 'reconciliation_review': return 'blue'
+    default: return 'slate'
+  }
+}
+
+function NotifIcon({ eventType }: { eventType: string }) {
+  switch (eventType) {
+    case 'reminder_failed': return <AlertCircle size={18} />
+    case 'import_complete': return <CheckCircle size={18} />
+    case 'import_failed': return <AlertCircle size={18} />
+    case 'reconciliation_review': return <RefreshCw size={18} />
+    default: return <Bell size={18} />
+  }
+}
+
+function notifStatusPill(n: Notification): { label: string; cls: string } | null {
+  const d = n.details || {}
+  if (n.event_type === 'reminder_approval') {
+    return n.read
+      ? { label: 'Read', cls: 'notif-pill-slate' }
+      : { label: 'Action needed', cls: 'notif-pill-amber' }
+  }
+  if (n.event_type === 'reminder_failed') return { label: 'Failed', cls: 'notif-pill-red' }
+  if (n.event_type === 'reconciliation_review') return { label: 'Needs review', cls: 'notif-pill-blue' }
+  if (d.days_overdue && d.days_overdue > 0) return { label: `${d.days_overdue}d overdue`, cls: 'notif-pill-red' }
+  return null
+}
+
+function groupNotifsByDate(notifs: Notification[]): { label: string; items: Notification[] }[] {
+  const now = new Date()
+  const todayStr = now.toLocaleDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toLocaleDateString()
+  const weekAgo = new Date(now)
+  weekAgo.setDate(weekAgo.getDate() - 7)
+
+  const buckets: Record<string, Notification[]> = {}
+  for (const n of notifs) {
+    const d = new Date(n.created_at)
+    const dStr = d.toLocaleDateString()
+    let label: string
+    if (dStr === todayStr) label = 'TODAY'
+    else if (dStr === yesterdayStr) label = 'YESTERDAY'
+    else if (d >= weekAgo) label = 'EARLIER THIS WEEK'
+    else label = 'EARLIER'
+    if (!buckets[label]) buckets[label] = []
+    buckets[label].push(n)
+  }
+
+  const order = ['TODAY', 'YESTERDAY', 'EARLIER THIS WEEK', 'EARLIER']
+  return order.filter(l => buckets[l]).map(l => ({ label: l, items: buckets[l] }))
+}
+
+// ── NotificationsPage component ───────────────────────────────────────────
+
+function NotificationsPage({
+  notifications,
+  unreadCount,
+  org: _org,
+  onNotifClick,
+  onMarkAllRead,
+  onApproveJob,
+}: {
+  notifications: Notification[]
+  unreadCount: number
+  org: Org
+  onNotifClick: (n: Notification) => Promise<void>
+  onMarkAllRead: () => Promise<void>
+  onApproveJob: (jobId: string) => void
+}) {
+  const [tab, setTab] = useState<'all' | 'unread' | 'approvals' | 'overdue'>('all')
+  const [search, setSearch] = useState('')
+  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null)
+  const [notifLoading] = useState(false)
+
+  const hasApprovalUnread = notifications.some(n => n.event_type === 'reminder_approval' && !n.read)
+
+  const tabCounts = {
+    all: notifications.length,
+    unread: notifications.filter(n => !n.read).length,
+    approvals: notifications.filter(n => n.event_type === 'reminder_approval').length,
+    overdue: notifications.filter(n =>
+      n.event_type === 'reminder_failed' || (n.details?.days_overdue != null && n.details.days_overdue > 0)
+    ).length,
+  }
+
+  const filtered = notifications
+    .filter(n => {
+      if (tab === 'unread') return !n.read
+      if (tab === 'approvals') return n.event_type === 'reminder_approval'
+      if (tab === 'overdue') return n.event_type === 'reminder_failed' || (n.details?.days_overdue != null && n.details.days_overdue > 0)
+      return true
+    })
+    .filter(n => {
+      if (!search.trim()) return true
+      const q = search.toLowerCase()
+      const name = (n.details?.customer_name || '').toLowerCase()
+      const inv = (n.details?.invoice_number || '').toLowerCase()
+      return name.includes(q) || inv.includes(q)
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  const groups = groupNotifsByDate(filtered)
+
+  const todayLabel = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }).toUpperCase()
+
+  const handleRowClick = async (n: Notification) => {
+    setSelectedNotif(n)
+    await onNotifClick(n)
+  }
+
+  // Inspector panel
+  const insp = selectedNotif
+  const inspD = insp?.details || {}
+
+  return (
+    <div className="notif-page">
+      {/* Header */}
+      <div className="notif-page-header">
+        <div>
+          <div style={{ fontSize: 12, color: '#A8B5C6', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 2 }}>
+            {todayLabel}
+          </div>
+          <h1 className="notif-page-title">Notifications</h1>
+          <p className="notif-page-subtitle">
+            Review pending reminder approvals, overdue alerts, and incoming payments.
+          </p>
+        </div>
+        <div className="notif-page-actions">
+          <button
+            className="secondary"
+            style={{ background: 'rgba(21, 27, 43, 0.6)', border: '1px solid #2A3448' }}
+            onClick={onMarkAllRead}
+          >
+            Mark all read
+          </button>
+          {hasApprovalUnread && (
+            <button
+              className="notif-approve-cta"
+              onClick={() => onApproveJob('')}
+            >
+              Approve all pending
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs + search toolbar */}
+      <div className="notif-toolbar notif-tabs-row" style={{ marginBottom: 16, background: 'rgba(21,27,43,0.72)', border: '1px solid #2A3448', borderRadius: '10px 10px 0 0' }}>
+        {(['all', 'unread', 'approvals', 'overdue'] as const).map(t => (
+          <button
+            key={t}
+            className={`notif-tab${tab === t ? ' active' : ''}`}
+            onClick={() => setTab(t)}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+            <span className={`notif-tab-count${t === 'unread' && tabCounts.unread > 0 ? ' unread-pill' : ''}`}>
+              {tabCounts[t]}
+            </span>
+          </button>
+        ))}
+        <div className="notif-search-wrap">
+          <Search size={13} className="notif-search-icon" />
+          <input
+            className="notif-search"
+            placeholder="Search customer or invoice..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Layout: feed + inspector */}
+      <div className="notif-layout">
+        {/* Feed */}
+        <div className="notif-feed">
+          <div className="notif-feed-inner">
+            {notifLoading && (
+              <>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="notif-skeleton-row">
+                    <div className="notif-skeleton-icon" style={{ animation: 'pulse 1.5s infinite' }} />
+                    <div className="notif-skeleton-body">
+                      <div className="notif-skeleton-line" style={{ width: '60%', animation: 'pulse 1.5s infinite' }} />
+                      <div className="notif-skeleton-line" style={{ width: '80%', animation: 'pulse 1.5s infinite' }} />
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {!notifLoading && filtered.length === 0 && (
+              <div className="notif-empty">
+                <div className="notif-empty-icon"><Bell size={26} /></div>
+                <p className="notif-empty-title">You're all caught up</p>
+                <p className="notif-empty-sub">No notifications to show.</p>
+              </div>
+            )}
+
+            {!notifLoading && groups.map(group => (
+              <div key={group.label}>
+                <div className="notif-group-header">
+                  <span>{group.label}</span>
+                  <span>{group.items.length}</span>
+                </div>
+                {group.items.map(n => {
+                  const d = n.details || {}
+                  const iconColor = notifIconColor(n.event_type, n.read)
+                  const pill = notifStatusPill(n)
+                  const isSelected = selectedNotif?.id === n.id
+                  const relTime = relativeTime(n.created_at)
+                  const exactTime = new Date(n.created_at).toLocaleString('en-IN')
+                  const hasTarget = !!notifTarget(n)
+                  const isApprovalUnread = n.event_type === 'reminder_approval' && !n.read
+                  return (
+                    <div
+                      key={n.id}
+                      className={`notif-row-new${!n.read ? ' is-unread' : ' is-read'}${isSelected ? ' is-selected' : ''}`}
+                      onClick={() => handleRowClick(n)}
+                    >
+                      {/* Icon tile */}
+                      <div className={`notif-icon-tile ${iconColor}`}>
+                        <NotifIcon eventType={n.event_type} />
+                        {!n.read && <span className="notif-unread-dot" />}
+                      </div>
+
+                      {/* Body */}
+                      <div className="notif-row-body">
+                        <div className="notif-row-line1">
+                          <span className="notif-row-title">{notifTitle(n)}</span>
+                          {pill && (
+                            <span className={`notif-status-pill ${pill.cls}`}>{pill.label}</span>
+                          )}
+                        </div>
+                        <div className="notif-row-line2">
+                          {d.customer_name && <span>{d.customer_name}</span>}
+                          {d.customer_name && (d.invoice_number || d.due_date || d.step_label) && (
+                            <span style={{ color: '#4A5568' }}>·</span>
+                          )}
+                          {d.invoice_number && (
+                            <span className="notif-inv-chip">{d.invoice_number}</span>
+                          )}
+                          {d.due_date && (
+                            <span>Due {fmtDate(d.due_date)}</span>
+                          )}
+                          {d.step_label && (
+                            <span style={{ color: '#6B7A8D' }}>{d.step_label}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right column */}
+                      <div className="notif-row-right">
+                        {d.outstanding_minor != null && (
+                          <span className="notif-amount">{money(d.outstanding_minor)}</span>
+                        )}
+                        <span className="notif-reltime" title={exactTime}>{relTime}</span>
+                        {isApprovalUnread ? (
+                          <button
+                            className="notif-quick-btn"
+                            onClick={e => { e.stopPropagation(); onApproveJob(n.entity_id) }}
+                          >
+                            Approve
+                          </button>
+                        ) : hasTarget ? (
+                          <span className="notif-quick-chevron" style={{ fontSize: 14 }}>›</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Inspector pane (desktop only via CSS) */}
+        <div className="notif-inspector">
+          {!insp ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#6B7A8D', fontSize: 13 }}>
+              Select a notification to see details
+            </div>
+          ) : (
+            <>
+              <div className="notif-inspector-eyebrow">Selected Notification</div>
+              <div className="notif-inspector-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {notifTitle(insp)}
+                {notifStatusPill(insp) && (
+                  <span className={`notif-status-pill ${notifStatusPill(insp)!.cls}`}>
+                    {notifStatusPill(insp)!.label}
+                  </span>
+                )}
+              </div>
+
+              {/* Metrics grid */}
+              <div className="notif-inspector-metrics">
+                <div>
+                  <div className="notif-inspector-metric-label">Customer</div>
+                  <div className="notif-inspector-metric-value">{inspD.customer_name || '—'}</div>
+                </div>
+                <div>
+                  <div className="notif-inspector-metric-label">Invoice</div>
+                  <div className={`notif-inspector-metric-value${inspD.invoice_number ? ' mono' : ''}`}>
+                    {inspD.invoice_number || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="notif-inspector-metric-label">Amount Due</div>
+                  <div className={`notif-inspector-metric-value${inspD.outstanding_minor != null ? ' amount' : ''}`}>
+                    {inspD.outstanding_minor != null ? money(inspD.outstanding_minor) : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="notif-inspector-metric-label">Due Date</div>
+                  <div className="notif-inspector-metric-value">
+                    {inspD.due_date ? fmtDate(inspD.due_date) : '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step label */}
+              {inspD.step_label && (
+                <div style={{ background: 'rgba(42,52,72,0.4)', border: '1px solid #2A3448', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#A8B5C6', marginBottom: 14 }}>
+                  <span style={{ color: '#6B7A8D', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Step · </span>
+                  {inspD.step_label}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="notif-inspector-actions">
+                {insp.event_type === 'reminder_approval' && (
+                  <button
+                    className="btn-approve"
+                    onClick={() => onApproveJob(insp.entity_id)}
+                  >
+                    Approve &amp; Send
+                  </button>
+                )}
+                <div className="btn-secondary-row">
+                  {inspD.invoice_number && (
+                    <button className="secondary" style={{ fontSize: 12 }}>View Invoice</button>
+                  )}
+                  {!insp.read && (
+                    <button
+                      className="secondary"
+                      style={{ fontSize: 12 }}
+                      onClick={() => onNotifClick(insp)}
+                    >
+                      Mark Read
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RemindersPage({
+  org,
+  deepLinkJobId,
+  onDeepLinkConsumed,
+}: {
+  org: Org
+  deepLinkJobId?: string
+  onDeepLinkConsumed?: () => void
+}) {
   const [view, setView] = useState<'pending' | 'sent' | 'failed' | 'schedules'>('pending')
   const [schedules, setSchedules] = useState<ReminderSchedule[]>([])
   const [steps, setSteps] = useState<ReminderStep[]>([])
@@ -2149,6 +2640,29 @@ function RemindersPage({ org }: { org: Org }) {
     else if (view === 'failed') loadJobs('failed')
   }, [view, loadSchedules, loadJobs])
 
+  // Deep-link: when navigated here from a notification, auto-open that job's modal
+  useEffect(() => {
+    if (!deepLinkJobId) return
+    setView('pending')
+    onDeepLinkConsumed?.()
+    ;(async () => {
+      setLoading(true)
+      try {
+        const fullJob = await api.getReminderJobWithPreview(org.id, deepLinkJobId)
+        setPreviewJob(fullJob)
+        setCustomIntro(fullJob.approved_custom_intro || '')
+        setCustomClosing(fullJob.approved_custom_closing || '')
+        setShowPreviewModal(true)
+        loadJobs('proposed')
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not load reminder details')
+        loadJobs('proposed')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [deepLinkJobId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Seed default setup
   const handleSeedDefaults = async () => {
     if (!confirm('Create default 4-step reminder schedule? This will create:\n- Invoice Issue Notification\n- 7 days before due reminder\n- 3 days after due reminder\n- 15 days after due final notice')) return
@@ -2229,21 +2743,23 @@ function RemindersPage({ org }: { org: Org }) {
     <div>
       {/* Header */}
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600 }}>Payment Reminders</h1>
+        <h1 className="reminders-page-title" style={{ margin: 0, fontSize: '28px', fontWeight: 700, letterSpacing: '-0.5px' }}>Payment Reminders</h1>
         <div style={{ display: 'flex', gap: '12px' }}>
           {schedules.length === 0 && (
-            <button onClick={handleSeedDefaults} disabled={loading} style={{
-              padding: '10px 20px', background: '#3b82f6', color: 'white', border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+            <button onClick={handleSeedDefaults} disabled={loading} className="reminders-cta-btn" style={{
+              padding: '10px 20px', background: 'linear-gradient(to right, #14B8A6, #03B5D3)', color: '#003731', border: 'none',
+              borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '14px',
+              boxShadow: '0 0 20px rgba(20,184,166,0.3)', opacity: loading ? 0.6 : 1
             }}>
               Set Up Reminders
             </button>
           )}
-          <button onClick={() => { setEditingSchedule(null); setShowScheduleModal(true) }} style={{
-            padding: '10px 20px', background: '#10b981', color: 'white', border: 'none',
-            borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+          <button onClick={() => { setEditingSchedule(null); setShowScheduleModal(true) }} className="reminders-cta-btn" style={{
+            padding: '10px 20px', background: 'linear-gradient(to right, #14B8A6, #03B5D3)', color: '#003731', border: 'none',
+            borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
+            boxShadow: '0 0 20px rgba(20,184,166,0.3)', display: 'inline-flex', alignItems: 'center'
           }}>
-            <Plus size={16} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+            <Plus size={16} style={{ marginRight: '6px' }} />
             New Schedule
           </button>
         </div>
@@ -2251,110 +2767,122 @@ function RemindersPage({ org }: { org: Org }) {
 
       {/* Alerts */}
       {error && (
-        <div style={{ padding: '12px', background: '#fee', border: '1px solid #fcc', borderRadius: '6px', marginBottom: '16px', color: '#c00' }}>
-          {error}
-          <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} />
+        <div className="reminders-alert-error" style={{ padding: '12px 16px', background: 'rgba(76,29,36,0.7)', border: '1px solid rgba(251,113,133,0.35)', borderRadius: '10px', marginBottom: '16px', color: '#FFE4E6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+          <span>{error}</span>
+          <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FB7185', marginLeft: '12px', flexShrink: 0 }}>
+            <X size={16} />
           </button>
         </div>
       )}
       {success && (
-        <div style={{ padding: '12px', background: '#efe', border: '1px solid #cfc', borderRadius: '6px', marginBottom: '16px', color: '#060' }}>
-          {success}
-          <button onClick={() => setSuccess('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X size={18} />
+        <div className="reminders-alert-success" style={{ padding: '12px 16px', background: 'rgba(15,61,46,0.7)', border: '1px solid rgba(52,211,153,0.35)', borderRadius: '10px', marginBottom: '16px', color: '#D1FAE5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+          <span>{success}</span>
+          <button onClick={() => setSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#34D399', marginLeft: '12px', flexShrink: 0 }}>
+            <X size={16} />
           </button>
         </div>
       )}
 
       {/* View Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '2px solid #e5e7eb' }}>
-        <button onClick={() => setView('pending')} style={{
-          padding: '12px 24px', background: view === 'pending' ? '#fff' : 'transparent',
-          border: 'none', borderBottom: view === 'pending' ? '3px solid #3b82f6' : '3px solid transparent',
-          cursor: 'pointer', fontWeight: 500, color: view === 'pending' ? '#3b82f6' : '#6b7280'
+      <div className="reminders-tab-bar" style={{ display: 'flex', gap: '0', marginBottom: '24px', borderBottom: '1px solid rgba(42,52,72,0.6)' }}>
+        <button onClick={() => setView('pending')} className={`reminders-tab${view === 'pending' ? ' reminders-tab-active' : ''}`} style={{
+          padding: '11px 22px', background: 'transparent', border: 'none',
+          borderBottom: view === 'pending' ? '2px solid #4FDBC8' : '2px solid transparent',
+          cursor: 'pointer', fontWeight: view === 'pending' ? 600 : 500, fontSize: '13px',
+          color: view === 'pending' ? '#4FDBC8' : '#6B7A8D', transition: 'color 0.15s, border-color 0.15s'
         }}>
-          Pending Approvals {pendingCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: '#fee', borderRadius: '12px', fontSize: '12px', color: '#c00' }}>{pendingCount}</span>}
+          Pending Approvals {pendingCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: 'rgba(76,29,36,0.7)', borderRadius: '999px', fontSize: '11px', color: '#FB7185', fontWeight: 700 }}>{pendingCount}</span>}
         </button>
-        <button onClick={() => setView('sent')} style={{
-          padding: '12px 24px', background: view === 'sent' ? '#fff' : 'transparent',
-          border: 'none', borderBottom: view === 'sent' ? '3px solid #3b82f6' : '3px solid transparent',
-          cursor: 'pointer', fontWeight: 500, color: view === 'sent' ? '#3b82f6' : '#6b7280'
+        <button onClick={() => setView('sent')} className={`reminders-tab${view === 'sent' ? ' reminders-tab-active' : ''}`} style={{
+          padding: '11px 22px', background: 'transparent', border: 'none',
+          borderBottom: view === 'sent' ? '2px solid #4FDBC8' : '2px solid transparent',
+          cursor: 'pointer', fontWeight: view === 'sent' ? 600 : 500, fontSize: '13px',
+          color: view === 'sent' ? '#4FDBC8' : '#6B7A8D', transition: 'color 0.15s, border-color 0.15s'
         }}>
           Sent History
         </button>
-        <button onClick={() => setView('failed')} style={{
-          padding: '12px 24px', background: view === 'failed' ? '#fff' : 'transparent',
-          border: 'none', borderBottom: view === 'failed' ? '3px solid #3b82f6' : '3px solid transparent',
-          cursor: 'pointer', fontWeight: 500, color: view === 'failed' ? '#3b82f6' : '#6b7280'
+        <button onClick={() => setView('failed')} className={`reminders-tab${view === 'failed' ? ' reminders-tab-active' : ''}`} style={{
+          padding: '11px 22px', background: 'transparent', border: 'none',
+          borderBottom: view === 'failed' ? '2px solid #4FDBC8' : '2px solid transparent',
+          cursor: 'pointer', fontWeight: view === 'failed' ? 600 : 500, fontSize: '13px',
+          color: view === 'failed' ? '#4FDBC8' : '#6B7A8D', transition: 'color 0.15s, border-color 0.15s'
         }}>
-          Failed {failedCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: '#fee', borderRadius: '12px', fontSize: '12px', color: '#c00' }}>{failedCount}</span>}
+          Failed {failedCount > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: 'rgba(76,29,36,0.7)', borderRadius: '999px', fontSize: '11px', color: '#FB7185', fontWeight: 700 }}>{failedCount}</span>}
         </button>
-        <button onClick={() => setView('schedules')} style={{
-          padding: '12px 24px', background: view === 'schedules' ? '#fff' : 'transparent',
-          border: 'none', borderBottom: view === 'schedules' ? '3px solid #3b82f6' : '3px solid transparent',
-          cursor: 'pointer', fontWeight: 500, color: view === 'schedules' ? '#3b82f6' : '#6b7280'
+        <button onClick={() => setView('schedules')} className={`reminders-tab${view === 'schedules' ? ' reminders-tab-active' : ''}`} style={{
+          padding: '11px 22px', background: 'transparent', border: 'none',
+          borderBottom: view === 'schedules' ? '2px solid #4FDBC8' : '2px solid transparent',
+          cursor: 'pointer', fontWeight: view === 'schedules' ? 600 : 500, fontSize: '13px',
+          color: view === 'schedules' ? '#4FDBC8' : '#6B7A8D', transition: 'color 0.15s, border-color 0.15s'
         }}>
-          Schedules ({schedules.length})
+          Schedules {schedules.length > 0 && <span style={{ marginLeft: '6px', padding: '2px 8px', background: 'rgba(79,219,200,0.12)', borderRadius: '999px', fontSize: '11px', color: '#4FDBC8', fontWeight: 700 }}>{schedules.length}</span>}
         </button>
       </div>
 
       {/* Content */}
-      {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>Loading...</div>}
+      {loading && <div style={{ textAlign: 'center', padding: '40px', color: '#6B7A8D', fontSize: '14px' }}>Loading...</div>}
 
       {!loading && view === 'pending' && (
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Awaiting Your Approval</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#EEF0FF', letterSpacing: '-0.2px' }}>Awaiting Your Approval</h2>
           {jobs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-              <Bell size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
-              <div>No pending reminders to approve</div>
+            <div className="glass-iridescent" style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7A8D', overflow: 'hidden' }}>
+              <Bell size={40} style={{ opacity: 0.3, marginBottom: '14px', color: '#4FDBC8' }} />
+              <div style={{ fontSize: '14px' }}>No pending reminders to approve</div>
             </div>
           ) : (
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="glass-iridescent" style={{ overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                <thead>
                   <tr>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
-                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Outstanding</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Due Date</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Step</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Scheduled</th>
-                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Actions</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Outstanding</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Due Date</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Step</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Scheduled</th>
+                    <th style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
-                      <td style={{ padding: '12px', textAlign: 'right', fontWeight: 600, color: job.snapshot_days_overdue > 0 ? '#dc2626' : '#059669' }}>
+                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px', color: job.snapshot_days_overdue > 0 ? '#FB7185' : '#34D399' }}>
                         {money(job.current_outstanding_minor || job.snapshot_outstanding_minor)}
                       </td>
-                      <td style={{ padding: '12px' }}>
-                        {fmtDate(job.snapshot_due_date)}
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#A8B5C6' }}>
+                        <span className={job.snapshot_days_overdue > 0 ? 'overdue-date' : ''}>{fmtDate(job.snapshot_due_date)}</span>
                         {job.snapshot_days_overdue > 0 && (
-                          <span style={{ marginLeft: '8px', fontSize: '12px', color: '#dc2626' }}>
-                            ({job.snapshot_days_overdue} days overdue)
+                          <span style={{ marginLeft: '8px', fontSize: '11px', color: '#FB7185', background: 'rgba(76,29,36,0.5)', padding: '1px 6px', borderRadius: '999px' }}>
+                            {job.snapshot_days_overdue}d overdue
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '12px' }}>
+                      <td style={{ padding: '13px 14px' }}>
                         <span style={{
-                          padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 500,
-                          background: job.step_tone === 'issue' ? '#dbeafe' : job.step_tone === 'friendly' ? '#d1fae5' : job.step_tone === 'gentle' ? '#fef3c7' : '#fee2e2',
-                          color: job.step_tone === 'issue' ? '#1e40af' : job.step_tone === 'friendly' ? '#065f46' : job.step_tone === 'gentle' ? '#92400e' : '#991b1b'
+                          padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+                          background: job.step_tone === 'issue' ? '#1E3A5F' : job.step_tone === 'friendly' ? '#0F3D2E' : job.step_tone === 'gentle' ? '#452A0F' : '#4C1D24',
+                          color: job.step_tone === 'issue' ? '#93C5FD' : job.step_tone === 'friendly' ? '#86EFAC' : job.step_tone === 'gentle' ? '#FDE68A' : '#FCA5A5',
+                          letterSpacing: '0.02em'
                         }}>
                           Step {job.step_number}
                         </span>
                       </td>
-                      <td style={{ padding: '12px' }}>{fmtDate(job.scheduled_date)}</td>
-                      <td style={{ padding: '12px', textAlign: 'right' }}>
-                        <button onClick={() => handlePreview(job)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '8px', fontSize: '13px' }}>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#6B7A8D' }}>{fmtDate(job.scheduled_date)}</td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right' }}>
+                        <button onClick={() => handlePreview(job)} style={{
+                          padding: '6px 12px', background: 'linear-gradient(to right, #14B8A6, #03B5D3)', color: '#003731',
+                          border: 'none', borderRadius: '6px', cursor: 'pointer', marginRight: '8px', fontSize: '12px',
+                          fontWeight: 600, boxShadow: '0 0 10px rgba(20,184,166,0.25)'
+                        }}>
                           Preview & Approve
                         </button>
-                        <button onClick={() => handleReject(job.id)} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                        <button onClick={() => handleReject(job.id)} style={{
+                          padding: '6px 12px', background: 'rgba(76,29,36,0.7)', color: '#FFE4E6',
+                          border: '1px solid rgba(251,113,133,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600
+                        }}>
                           Reject
                         </button>
                       </td>
@@ -2371,27 +2899,31 @@ function RemindersPage({ org }: { org: Org }) {
         <div>
           <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Sent Reminders</h2>
           {jobs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>No sent reminders yet</div>
+            <div className="glass-iridescent" style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7A8D', overflow: 'hidden', fontSize: '14px' }}>No sent reminders yet</div>
           ) : (
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="glass-iridescent" style={{ overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                <thead>
                   <tr>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Sent At</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
-                    <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600 }}>Amount Sent For</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Step</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Sent At</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'right' }}>Amount Sent For</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Step</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '12px' }}>{job.dispatched_at ? new Date(job.dispatched_at).toLocaleString('en-IN') : 'â€”'}</td>
-                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
-                      <td style={{ padding: '12px', textAlign: 'right' }}>{money(job.sent_outstanding_minor || job.snapshot_outstanding_minor)}</td>
-                      <td style={{ padding: '12px' }}>Step {job.step_number}</td>
+                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
+                      <td style={{ padding: '13px 14px', fontSize: '12px', color: '#6B7A8D', fontVariantNumeric: 'tabular-nums' }}>{job.dispatched_at ? new Date(job.dispatched_at).toLocaleString('en-IN') : '—'}</td>
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: '13px', color: '#4FDBC8' }}>{money(job.sent_outstanding_minor || job.snapshot_outstanding_minor)}</td>
+                      <td style={{ padding: '13px 14px' }}>
+                        <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: '#0F3D2E', color: '#86EFAC' }}>
+                          Step {job.step_number}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -2403,30 +2935,30 @@ function RemindersPage({ org }: { org: Org }) {
 
       {!loading && view === 'failed' && (
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#dc2626' }}>Failed Deliveries</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#FB7185', letterSpacing: '-0.2px' }}>Failed Deliveries</h2>
           {jobs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-              <CheckCircle size={48} style={{ color: '#10b981', marginBottom: '16px' }} />
-              <div>No failed deliveries</div>
+            <div className="glass-iridescent" style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7A8D', overflow: 'hidden' }}>
+              <CheckCircle size={40} style={{ color: '#34D399', marginBottom: '14px' }} />
+              <div style={{ fontSize: '14px' }}>No failed deliveries</div>
             </div>
           ) : (
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="glass-iridescent" style={{ overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                <thead>
                   <tr>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Invoice</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Customer</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Error</th>
-                    <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600 }}>Retry Count</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Invoice</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Customer</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Error</th>
+                    <th style={{ padding: '11px 14px', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7A8D', background: 'rgba(25,31,47,0.6)', borderBottom: '1px solid rgba(42,52,72,0.5)', textAlign: 'left' }}>Retry Count</th>
                   </tr>
                 </thead>
                 <tbody>
                   {jobs.map(job => (
-                    <tr key={job.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '12px' }}>{job.invoice_number}</td>
-                      <td style={{ padding: '12px' }}>{job.customer_name}</td>
-                      <td style={{ padding: '12px', color: '#dc2626', fontSize: '13px' }}>{job.block_reason || 'Unknown error'}</td>
-                      <td style={{ padding: '12px' }}>{job.retry_count || 0}</td>
+                    <tr key={job.id} className="reminders-table-row" style={{ borderBottom: '1px solid rgba(42,52,72,0.5)' }}>
+                      <td style={{ padding: '13px 14px', fontFamily: "'Red Hat Mono', monospace", fontSize: '12px', color: '#A8B5C6' }}>{job.invoice_number}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#EEF0FF', fontWeight: 500 }}>{job.customer_name}</td>
+                      <td style={{ padding: '13px 14px', color: '#FB7185', fontSize: '12px' }}>{job.block_reason || 'Unknown error'}</td>
+                      <td style={{ padding: '13px 14px', fontSize: '13px', color: '#A8B5C6' }}>{job.retry_count || 0}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2438,13 +2970,13 @@ function RemindersPage({ org }: { org: Org }) {
 
       {!loading && view === 'schedules' && (
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>Reminder Schedules</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#EEF0FF', letterSpacing: '-0.2px' }}>Reminder Schedules</h2>
           {schedules.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <div style={{ marginBottom: '16px', color: '#6b7280' }}>No schedules configured yet</div>
+            <div className="glass-iridescent" style={{ textAlign: 'center', padding: '48px 24px', overflow: 'hidden' }}>
+              <div style={{ marginBottom: '16px', color: '#6B7A8D', fontSize: '14px' }}>No schedules configured yet</div>
               <button onClick={handleSeedDefaults} style={{
-                padding: '12px 24px', background: '#3b82f6', color: 'white', border: 'none',
-                borderRadius: '6px', cursor: 'pointer', fontWeight: 500
+                padding: '10px 20px', background: 'linear-gradient(to right, #14B8A6, #03B5D3)', color: '#003731', border: 'none',
+                borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '14px', boxShadow: '0 0 16px rgba(20,184,166,0.3)'
               }}>
                 Create Default 4-Step Schedule
               </button>
@@ -2452,28 +2984,29 @@ function RemindersPage({ org }: { org: Org }) {
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
               {schedules.map(schedule => (
-                <div key={schedule.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
+                <div key={schedule.id} className="glass-iridescent" style={{ padding: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{schedule.name}</h3>
+                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#EEF0FF' }}>{schedule.name}</h3>
                         {schedule.is_default && (
                           <span style={{
-                            padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
-                            background: '#dbeafe', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.03em'
+                            padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+                            background: 'rgba(79,219,200,0.12)', color: '#4FDBC8', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(79,219,200,0.3)'
                           }}>
                             Default
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
-                        {schedule.step_count} steps â€¢ Business hours: {schedule.send_hour_start}:00 - {schedule.send_hour_end}:00
+                      <div style={{ fontSize: '13px', color: '#6B7A8D', marginTop: '4px' }}>
+                        {schedule.step_count} steps · Business hours: {schedule.send_hour_start}:00–{schedule.send_hour_end}:00
                       </div>
                     </div>
                     <div style={{
-                      padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 500,
-                      background: schedule.enabled ? '#d1fae5' : '#fee2e2',
-                      color: schedule.enabled ? '#065f46' : '#991b1b'
+                      padding: '3px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 600,
+                      background: schedule.enabled ? '#0F3D2E' : '#4C1D24',
+                      color: schedule.enabled ? '#86EFAC' : '#FCA5A5',
+                      border: schedule.enabled ? '1px solid rgba(52,211,153,0.3)' : '1px solid rgba(251,113,133,0.3)'
                     }}>
                       {schedule.enabled ? 'Active' : 'Inactive'}
                     </div>
@@ -2486,32 +3019,34 @@ function RemindersPage({ org }: { org: Org }) {
                       View Steps â†’
                     </button>
                     <button onClick={() => { setEditingSchedule(schedule); setShowScheduleModal(true) }} style={{
-                      padding: '8px 16px', background: 'white', border: '1px solid #d1d5db',
-                      borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#374151',
+                      padding: '8px 16px', background: 'rgba(25,31,47,0.8)', border: '1px solid #2A3448',
+                      borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '13px', color: '#A8B5C6',
                       display: canManage ? 'inline-flex' : 'none'
                     }}>
                       Edit
                     </button>
                     {canManage && (
                       <button onClick={() => handleToggle(schedule)} title={schedule.enabled ? 'Deactivate' : 'Activate'} style={{
-                        padding: '8px 16px', background: 'white', border: '1px solid #d1d5db',
-                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: schedule.enabled ? '#d97706' : '#059669'
+                        padding: '8px 16px', background: schedule.enabled ? 'rgba(69,42,15,0.5)' : 'rgba(15,61,46,0.5)',
+                        border: schedule.enabled ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(52,211,153,0.3)',
+                        borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '13px',
+                        color: schedule.enabled ? '#FBBF24' : '#34D399'
                       }}>
                         {schedule.enabled ? 'Deactivate' : 'Activate'}
                       </button>
                     )}
                     {canManage && !schedule.is_default && (
                       <button onClick={() => handleSetDefault(schedule)} style={{
-                        padding: '8px 16px', background: 'white', border: '1px solid #3b82f6',
-                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#3b82f6'
+                        padding: '8px 16px', background: 'rgba(79,219,200,0.08)', border: '1px solid rgba(79,219,200,0.3)',
+                        borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '13px', color: '#4FDBC8'
                       }}>
                         Set as default
                       </button>
                     )}
                     {canManage && (
                       <button onClick={() => handleShowArchiveConfirm(schedule)} title="Delete (archive) this schedule" style={{
-                        padding: '8px 16px', background: 'white', border: '1px solid #dc2626',
-                        borderRadius: '6px', cursor: 'pointer', fontWeight: 500, fontSize: '14px', color: '#dc2626'
+                        padding: '8px 16px', background: 'rgba(76,29,36,0.5)', border: '1px solid rgba(251,113,133,0.3)',
+                        borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '13px', color: '#FB7185'
                       }}>
                         Delete
                       </button>
@@ -2524,27 +3059,27 @@ function RemindersPage({ org }: { org: Org }) {
 
           {/* Schedule Steps Panel */}
           {selectedSchedule && (
-            <div style={{ marginTop: '24px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '20px' }}>
+            <div className="glass-iridescent" style={{ marginTop: '24px', padding: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Steps for: {selectedSchedule.name}</h3>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#EEF0FF' }}>Steps for: {selectedSchedule.name}</h3>
                 <button onClick={() => setSelectedSchedule(null)} style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280'
+                  background: 'rgba(25,31,47,0.8)', border: '1px solid #2A3448', borderRadius: '8px', cursor: 'pointer', color: '#6B7A8D', padding: '4px 8px', display: 'flex', alignItems: 'center'
                 }}>
-                  <X size={20} />
+                  <X size={16} />
                 </button>
               </div>
               {steps.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>No steps configured</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: '#6B7A8D', fontSize: '13px' }}>No steps configured</div>
               ) : (
-                <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'grid', gap: '10px' }}>
                   {steps.map(step => (
-                    <div key={step.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
+                    <div key={step.id} style={{ background: 'rgba(25,31,47,0.6)', border: '1px solid rgba(42,52,72,0.6)', borderRadius: '10px', padding: '14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                         <div>
-                          <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                          <div style={{ fontWeight: 600, marginBottom: '4px', color: '#EEF0FF', fontSize: '13px' }}>
                             Step {step.step_number}: {step.tone_display}
                           </div>
-                          <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                          <div style={{ fontSize: '12px', color: '#6B7A8D' }}>
                             Trigger: {step.offset_from_due !== null
                               ? `${step.offset_from_due} days ${step.offset_from_due < 0 ? 'before' : 'after'} due date`
                               : `${step.offset_from_issue} days from invoice issue`}
@@ -2708,6 +3243,20 @@ function RemindersPage({ org }: { org: Org }) {
                   overflowY: 'auto', overflowX: 'hidden',
                   padding: '20px', gap: '14px'
                 }}>
+                  {/* Already-processed banner */}
+                  {previewJob.status !== 'proposed' && (
+                    <div style={{
+                      padding: '10px 14px', background: '#fef3c7',
+                      border: '1px solid #f59e0b', borderRadius: '8px',
+                      fontSize: '13px', color: '#92400e'
+                    }}>
+                      This reminder is no longer pending — it was <strong>{previewJob.status_display || previewJob.status}</strong>.
+                      {previewJob.status === 'dispatched' && previewJob.dispatched_at && (
+                        <span> Sent on {new Date(previewJob.dispatched_at).toLocaleString('en-IN')}.</span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Summary card */}
                   <div style={{
                     background: 'white', border: '1px solid #e5e7eb',
@@ -2917,27 +3466,28 @@ function RemindersPage({ org }: { org: Org }) {
                 <button
                   type="button"
                   onClick={handleApprove}
-                  disabled={loading}
+                  disabled={loading || previewJob.status !== 'proposed'}
                   style={{
-                    padding: '9px 20px', background: '#18ac7a',
+                    padding: '9px 20px',
+                    background: previewJob.status !== 'proposed' ? '#e5e7eb' : '#18ac7a',
                     border: 'none', borderRadius: '8px',
                     fontSize: '14px', fontWeight: 600,
-                    color: '#000000',
-                    cursor: loading ? 'not-allowed' : 'pointer',
+                    color: previewJob.status !== 'proposed' ? '#6b7280' : '#000000',
+                    cursor: (loading || previewJob.status !== 'proposed') ? 'not-allowed' : 'pointer',
                     opacity: loading ? 0.6 : 1,
                     display: 'inline-flex', alignItems: 'center', gap: '8px',
                     transition: 'background 0.15s, box-shadow 0.15s, transform 0.1s'
                   }}
-                  onMouseEnter={e => { if (!loading) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#00FF00'; b.style.boxShadow = '0 2px 8px rgba(0,255,0,0.35)' } }}
-                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#10b981'; b.style.boxShadow = 'none'; b.style.transform = 'scale(1)' }}
-                  onMouseDown={e => { if (!loading) { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#0d9668'; b.style.transform = 'scale(0.97)' } }}
-                  onMouseUp={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#0ea571'; b.style.transform = 'scale(1)' }}
+                  onMouseEnter={e => { if (!loading && previewJob.status === 'proposed') { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#00FF00'; b.style.boxShadow = '0 2px 8px rgba(0,255,0,0.35)' } }}
+                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = previewJob.status !== 'proposed' ? '#e5e7eb' : '#10b981'; b.style.boxShadow = 'none'; b.style.transform = 'scale(1)' }}
+                  onMouseDown={e => { if (!loading && previewJob.status === 'proposed') { const b = e.currentTarget as HTMLButtonElement; b.style.background = '#0d9668'; b.style.transform = 'scale(0.97)' } }}
+                  onMouseUp={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = previewJob.status !== 'proposed' ? '#e5e7eb' : '#0ea571'; b.style.transform = 'scale(1)' }}
                 >
                   {loading
                     ? <Loader2 size={15} aria-hidden="true" style={{ animation: 'spin 1s linear infinite' }} />
                     : <Send size={15} aria-hidden="true" />
                   }
-                  <span>{loading ? 'Sending...' : 'Approve & Send'}</span>
+                  <span>{loading ? 'Sending...' : previewJob.status !== 'proposed' ? 'Already Processed' : 'Approve & Send'}</span>
                 </button>
               </footer>
             </div>
@@ -2983,6 +3533,10 @@ export default function App() {
   // const [forecast, setForecast] = useState<ForecastData | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // Notification deep-link: carries a reminder job ID when navigating
+  // from a notification click so RemindersPage can auto-open that job's modal.
+  const [notifDeepLink, setNotifDeepLink] = useState<{ reminderJobId?: string } | null>(null)
 
   // AI assistant
   const [question, setQuestion] = useState('')
@@ -3060,6 +3614,26 @@ export default function App() {
       })
     ).finally(() => setLoading(false))
   }, [loadData, loadNotifications])
+
+  const handleNotifClick = useCallback(async (n: Notification) => {
+    if (!org) return
+    if (!n.read) {
+      try {
+        await api.markRead(org.id, n.id)
+        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      } catch { /* ignore */ }
+    }
+    const target = notifTarget(n)
+    if (target === 'reminders') {
+      const jobId = n.entity_type === 'reminder_job' ? n.entity_id : undefined
+      setNotifDeepLink(jobId ? { reminderJobId: jobId } : {})
+      setPage('Reminders')
+    } else if (target === 'reconciliation') {
+      setPage('Reminders') // placeholder until Reconciliation page exists
+    }
+    // import_complete / import_failed: just marks as read, no page to open yet
+  }, [org, setPage])
 
   useEffect(() => {
     if (org) { loadData(org); loadNotifications(org) }
@@ -3241,6 +3815,7 @@ export default function App() {
           <div className="crumb">Workspace <span>/</span> <b>{page}</b></div>
           <div className="top-actions">
             <div className="period"><span className="live-dot" />Live data</div>
+            <ThemeToggle />
             <button className="icon-btn" onClick={() => setPage('Notifications')} title="Notifications">
               <Bell size={18} />{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
             </button>
@@ -3648,25 +4223,22 @@ export default function App() {
           )}
 
           {/* -- Notifications -- */}
-          {page === 'Notifications' && (
-            <div className="panel">
-              <div className="panel-head">
-                <div><h2>Notifications</h2><p>{unreadCount} unread</p></div>
-                <button className="secondary" onClick={async () => { await api.markAllRead(org.id); loadNotifications(org) }}>Mark all read</button>
-              </div>
-              <div style={{ padding: '0 4px' }}>
-                {notifications.length === 0 && <div className="empty">You're all caught up.</div>}
-                {notifications.map(n => (
-                  <div key={n.id} className={`notif-row ${n.read ? 'read' : 'unread'}`}>
-                    <Bell size={15} />
-                    <div>
-                      <div className="notif-type">{n.event_type.replace(/_/g, ' ')}</div>
-                      <div className="notif-time">{new Date(n.created_at).toLocaleString('en-IN')}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {page === 'Notifications' && org && (
+            <NotificationsPage
+              notifications={notifications}
+              unreadCount={unreadCount}
+              org={org}
+              onNotifClick={handleNotifClick}
+              onMarkAllRead={async () => {
+                await api.markAllRead(org.id)
+                loadNotifications(org)
+              }}
+              onApproveJob={(jobId) => {
+                if (jobId) setNotifDeepLink({ reminderJobId: jobId })
+                else setNotifDeepLink({})
+                setPage('Reminders')
+              }}
+            />
           )}
 
           {/* -- Audit log -- DISABLED — uncomment to re-enable */}
@@ -3700,7 +4272,11 @@ export default function App() {
           {/* -- Reminders / Reconciliation (coming soon) -- */}
           {/* RECONCILIATION DISABLED — uncomment `|| page === 'Reconciliation'` to re-enable */}
           {(page === 'Reminders' && org) && (
-            <RemindersPage org={org} />
+            <RemindersPage
+              org={org}
+              deepLinkJobId={notifDeepLink?.reminderJobId}
+              onDeepLinkConsumed={() => setNotifDeepLink(null)}
+            />
           )}
 
           <footer>

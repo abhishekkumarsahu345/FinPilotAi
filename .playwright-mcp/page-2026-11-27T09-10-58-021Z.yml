@@ -1,0 +1,36 @@
+- main [ref=e6]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e12]: FinPilot AI
+      - button "Switch to light mode" [active] [ref=e13] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]: FinPilot AI
+      - generic [ref=e27]:
+        - button "Login" [ref=e28] [cursor=pointer]
+        - button "Sign Up" [ref=e29] [cursor=pointer]
+      - generic [ref=e30]: RECEIVABLES, UNDER CONTROL
+      - heading "Welcome Back" [level=1] [ref=e31]
+      - paragraph [ref=e32]: Sign in to access your FinPilot AI workspace.
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: Registered Email
+          - textbox "Registered Email" [ref=e36]:
+            - /placeholder: you@company.com
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - generic [ref=e39]: Password
+            - button "Forgot Password?" [ref=e40] [cursor=pointer]
+          - generic [ref=e41]:
+            - textbox "Password" [ref=e42]:
+              - /placeholder: ••••••••
+            - button "Show password" [ref=e43] [cursor=pointer]
+        - generic [ref=e47] [cursor=pointer]:
+          - checkbox "Remember Me" [checked] [ref=e48]
+          - generic [ref=e49]: Remember Me
+        - button "Login" [ref=e50] [cursor=pointer]
+      - generic [ref=e51]: or
+      - button "Continue with Google" [ref=e52] [cursor=pointer]
+      - paragraph [ref=e58] [cursor=pointer]:
+        - text: Don't have an account?
+        - button "Sign up" [ref=e59]
+      - generic [ref=e60]: © FinPilot AI 2026
